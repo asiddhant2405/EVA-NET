@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════
    EVA-NET — Disaster Evacuation Navigation Engine (Lahaina, Maui)
    Real-World Geography · Zero API Key Requirement · Google Maps Routing
-   HTML5 GPS Location Detection · Highlighted Shelter Route Engine
+   HTML5 GPS Location Detection · Safety Level Prioritization & Routes
    ═══════════════════════════════════════════════════════════════════ */
 
 // ─── Real-World Geographic & Shelter Database (Lahaina, Maui) ─────
@@ -280,14 +280,14 @@ const REAL_DISASTER_HAZARDS = [
 ];
 
 let activeHazards = [...REAL_DISASTER_HAZARDS];
-let userDangerRating = 3;
+let userSafetyLevel = 3;
 
 // Priority Queue for First Responders
 let priorityQueue = [
-    { id: "USER_YOU", name: "Your Location (Self)", location: "Front St & Prison St", dangerScore: 3, status: "Priority 1 (SAR Dispatched)", lat: 20.8752, lon: -156.6788 },
-    { id: "PEER_004", name: "Evacuee (Elderly Couple)", location: "Front St & Shaw St", dangerScore: 2, status: "Priority 1 (Wheelchair Req)", lat: 20.8718, lon: -156.6748 },
-    { id: "PEER_009", name: "Evacuee (Family of 4)", location: "Wainee St & Prison St", dangerScore: 4, status: "Priority 1 (Smoke Inhalation)", lat: 20.8758, lon: -156.6768 },
-    { id: "PEER_012", name: "Evacuee (Solo Driver)", location: "Front St near Baker", dangerScore: 3, status: "Priority 1 (Vehicle Trapped)", lat: 20.8872, lon: -156.6838 }
+    { id: "USER_YOU", name: "Your Location (Self)", location: "Front St & Prison St", safetyLevel: 3, status: "Priority 1 (SAR Dispatched)", lat: 20.8752, lon: -156.6788 },
+    { id: "PEER_004", name: "Evacuee (Elderly Couple)", location: "Front St & Shaw St", safetyLevel: 2, status: "Priority 1 (Wheelchair Req)", lat: 20.8718, lon: -156.6748 },
+    { id: "PEER_009", name: "Evacuee (Family of 4)", location: "Wainee St & Prison St", safetyLevel: 4, status: "Priority 1 (Smoke Inhalation)", lat: 20.8758, lon: -156.6768 },
+    { id: "PEER_012", name: "Evacuee (Solo Driver)", location: "Front St near Baker", safetyLevel: 3, status: "Priority 1 (Vehicle Trapped)", lat: 20.8872, lon: -156.6838 }
 ];
 
 // User Location & Destination State
@@ -336,7 +336,7 @@ let sirenActive = false;
 document.addEventListener('DOMContentLoaded', () => {
     initDisasterMap();
     initShelterDirectory();
-    initDangerRatingSystem();
+    initSafetyRatingSystem();
     initPriorityQueue();
     initGoogleMapsRoutingUI();
     initSOSEvents();
@@ -574,8 +574,8 @@ function initUserLocationMarker() {
 }
 
 function updateUserMarkerVisual() {
-    const isHighDanger = userDangerRating <= 4;
-    const markerColor = isHighDanger ? '#dc2626' : '#0284c7';
+    const isLowSafety = userSafetyLevel <= 4;
+    const markerColor = isLowSafety ? '#dc2626' : '#0284c7';
 
     if (userMarker) {
         userMarker.setLatLng([userLocation.lat, userLocation.lon]);
@@ -584,12 +584,12 @@ function updateUserMarkerVisual() {
             const inner = el.querySelector('.user-map-marker');
             if (inner) {
                 inner.style.background = markerColor;
-                inner.style.boxShadow = isHighDanger ? '0 0 20px rgba(220,38,38,0.95)' : '0 0 16px rgba(2, 132, 199, 0.8)';
+                inner.style.boxShadow = isLowSafety ? '0 0 20px rgba(220,38,38,0.95)' : '0 0 16px rgba(2, 132, 199, 0.8)';
             }
         }
-        userMarker.setTooltipContent(`<b>Your Location</b><br>Danger: ${userDangerRating}/10 (${isHighDanger ? '🚨 PRIORITY 1 RESCUE' : 'Moderate Risk'})`);
+        userMarker.setTooltipContent(`<b>Your Location</b><br>Safety: ${userSafetyLevel}/10 (${isLowSafety ? '🚨 PRIORITY 1 RESCUE (LOW SAFETY)' : 'Moderate/High Safety'})`);
     } else {
-        const markerIconHtml = `<div class="user-map-marker" style="background: ${markerColor}; ${isHighDanger ? 'box-shadow: 0 0 20px rgba(220,38,38,0.95);' : ''}" title="Drag or click map to change your location">📍</div>`;
+        const markerIconHtml = `<div class="user-map-marker" style="background: ${markerColor}; ${isLowSafety ? 'box-shadow: 0 0 20px rgba(220,38,38,0.95);' : ''}" title="Drag or click map to change your location">📍</div>`;
         const userIcon = L.divIcon({
             className: 'custom-leaflet-icon',
             html: markerIconHtml,
@@ -602,7 +602,7 @@ function updateUserMarkerVisual() {
             draggable: true
         }).addTo(map);
 
-        userMarker.bindTooltip(`<b>Your Location</b><br>Danger: ${userDangerRating}/10 (${isHighDanger ? '🚨 PRIORITY 1 RESCUE' : 'Moderate Risk'})`, {
+        userMarker.bindTooltip(`<b>Your Location</b><br>Safety: ${userSafetyLevel}/10 (${isLowSafety ? '🚨 PRIORITY 1 RESCUE (LOW SAFETY)' : 'Moderate/High Safety'})`, {
             permanent: false,
             direction: 'top'
         });
@@ -932,11 +932,11 @@ function generateTurnByTurnSteps(routeResult) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// NON-GLITCHING DANGER RATING SYSTEM & DISPATCH HUB
+// SAFETY LEVEL RATING SYSTEM & DISPATCH HUB
 // ═══════════════════════════════════════════════════════════════════
-function initDangerRatingSystem() {
-    const headerSlider = document.getElementById('header-danger-slider');
-    const headerWidget = document.querySelector('.header-danger-widget');
+function initSafetyRatingSystem() {
+    const headerSlider = document.getElementById('header-safety-slider') || document.getElementById('header-danger-slider');
+    const headerWidget = document.querySelector('.header-safety-widget') || document.querySelector('.header-danger-widget');
 
     if (!headerSlider) return;
 
@@ -951,40 +951,40 @@ function initDangerRatingSystem() {
 
     headerSlider.addEventListener('input', function(e) {
         e.stopPropagation();
-        userDangerRating = parseInt(this.value, 10);
-        updateDangerRatingState(userDangerRating);
+        userSafetyLevel = parseInt(this.value, 10);
+        updateSafetyRatingState(userSafetyLevel);
     });
 
-    updateDangerRatingState(userDangerRating);
+    updateSafetyRatingState(userSafetyLevel);
 }
 
-function updateDangerRatingState(score) {
-    const pill = document.getElementById('header-danger-pill');
+function updateSafetyRatingState(score) {
+    const pill = document.getElementById('header-safety-pill') || document.getElementById('header-danger-pill');
     const sosRatingVal = document.getElementById('sos-rating-val');
 
     if (score <= 4) {
         if (pill) {
-            pill.textContent = `${score} / 10 (PRIORITY 1)`;
-            pill.className = 'danger-pill priority-high';
+            pill.textContent = `Safety: ${score} / 10 · LOW (PRIORITY 1)`;
+            pill.className = 'safety-pill priority-high';
         }
-        if (sosRatingVal) sosRatingVal.textContent = `${score} / 10 (CRITICAL RESCUE PRIORITY)`;
-        priorityQueue[0].dangerScore = score;
+        if (sosRatingVal) sosRatingVal.textContent = `Safety: ${score} / 10 (CRITICAL RESCUE PRIORITY)`;
+        priorityQueue[0].safetyLevel = score;
         priorityQueue[0].status = "Priority 1 (SAR Dispatched)";
     } else if (score <= 7) {
         if (pill) {
-            pill.textContent = `${score} / 10 (MODERATE)`;
-            pill.className = 'danger-pill priority-mid';
+            pill.textContent = `Safety: ${score} / 10 · MODERATE`;
+            pill.className = 'safety-pill priority-mid';
         }
-        if (sosRatingVal) sosRatingVal.textContent = `${score} / 10 (Moderate Danger)`;
-        priorityQueue[0].dangerScore = score;
+        if (sosRatingVal) sosRatingVal.textContent = `Safety: ${score} / 10 (Moderate Safety)`;
+        priorityQueue[0].safetyLevel = score;
         priorityQueue[0].status = "Priority 2 (En Route)";
     } else {
         if (pill) {
-            pill.textContent = `${score} / 10 (SAFE)`;
-            pill.className = 'danger-pill priority-safe';
+            pill.textContent = `Safety: ${score} / 10 · HIGH SAFETY`;
+            pill.className = 'safety-pill priority-safe';
         }
-        if (sosRatingVal) sosRatingVal.textContent = `${score} / 10 (Safe Zone)`;
-        priorityQueue[0].dangerScore = score;
+        if (sosRatingVal) sosRatingVal.textContent = `Safety: ${score} / 10 (Safe Zone)`;
+        priorityQueue[0].safetyLevel = score;
         priorityQueue[0].status = "Safe Refuge";
     }
 
@@ -997,18 +997,19 @@ function initPriorityQueue() {
     const badgeEl = document.getElementById('queue-badge');
     if (!listEl) return;
 
-    const highPriorityUsers = priorityQueue.filter(u => u.dangerScore <= 4);
+    const highPriorityUsers = priorityQueue.filter(u => (u.safetyLevel || u.dangerScore || 3) <= 4);
     if (badgeEl) badgeEl.textContent = `${highPriorityUsers.length} High-Priority Users`;
 
     listEl.innerHTML = priorityQueue.map(u => {
-        const isCrit = u.dangerScore <= 4;
+        const score = u.safetyLevel || u.dangerScore || 3;
+        const isCrit = score <= 4;
         return `
             <div class="queue-item" style="${isCrit ? 'border-left: 3px solid #dc2626;' : 'background: #f8fafc;'}">
                 <div>
                     <span class="queue-user">${u.name}</span>
                     <span style="display: block; font-size: 0.64rem; color: #64748b;">📍 ${u.location} · ${u.status}</span>
                 </div>
-                <span class="queue-danger ${isCrit ? 'text-red' : 'text-green'}">Danger: ${u.dangerScore}/10</span>
+                <span class="queue-safety ${isCrit ? 'text-red' : 'text-green'}">Safety: ${score}/10</span>
             </div>
         `;
     }).join('');
@@ -1070,7 +1071,7 @@ function initSOSEvents() {
     const sosModal = document.getElementById('sos-modal');
     const openSOS = () => {
         if (sosModal) sosModal.classList.add('active');
-        showToast("🚨 SOS DISTRESS BROADCASTED", "Transmitted GPS coordinates & danger score across all mesh nodes.");
+        showToast("🚨 SOS DISTRESS BROADCASTED", "Transmitted GPS coordinates & safety rating across all mesh nodes.");
     };
 
     const closeSOS = () => {
@@ -1431,7 +1432,7 @@ function resetSimulation() {
     }
 }
 
-// ─── Utilities ─────────────────────────────────────────────────────
+// ─── Utilities ────────────────═════════════════════════════════════
 function getDistanceMeters(lat1, lon1, lat2, lon2) {
     const R = 6371e3;
     const φ1 = lat1 * Math.PI / 180;

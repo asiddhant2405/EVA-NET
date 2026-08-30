@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EVA-NET — Disaster Evacuation Navigation (Lahaina, Maui)</title>
-    <meta name="description" content="EVA-NET: Decentralized real-time disaster evacuation navigation on real-world Maui geography with safest vs shortest routes, verified shelter owner contacts, 1-10 danger prioritization, and emergency SOS broadcast.">
+    <meta name="description" content="EVA-NET: Decentralized real-time disaster evacuation navigation on real-world Maui geography with safest vs shortest routes, verified shelter owner contacts, 1-10 safety level prioritization, and emergency SOS broadcast.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -36,21 +36,21 @@
             </div>
             <div class="crisis-tag">
                 <span class="live-blink"></span>
-                <span>CRISIS: <strong>LAHAINA, MAUI WILDFIRE</strong></span>
+                <span>LAHAINA, MAUI DISASTER</span>
             </div>
         </div>
 
-        <!-- Danger Level Slider (1 - 10) in Top Header -->
-        <div class="header-danger-widget">
-            <div class="danger-widget-left">
-                <span class="widget-title">YOUR "IN DANGER" RATING:</span>
-                <span class="widget-desc">Rating &le; 4 triggers Priority 1 Rescue Extraction</span>
+        <!-- Safety Level Slider (1 - 10) in Top Header -->
+        <div class="header-safety-widget">
+            <div class="safety-widget-left">
+                <span class="widget-title">YOUR SAFETY LEVEL</span>
+                <span class="widget-desc">Safety &le; 4 = High Priority Rescue</span>
             </div>
             <div class="slider-wrap">
-                <input type="range" min="1" max="10" value="3" class="header-slider" id="header-danger-slider">
-                <div class="danger-pill priority-high" id="header-danger-pill">
-                    3 / 10 (CRITICAL)
-                </div>
+                <input type="range" min="1" max="10" value="3" class="header-slider" id="header-safety-slider" aria-label="Safety level slider from 1 to 10">
+            </div>
+            <div class="safety-pill priority-high" id="header-safety-pill">
+                Safety: 3 / 10 · LOW (PRIORITY 1)
             </div>
         </div>
 
@@ -58,10 +58,10 @@
         <div class="header-actions">
             <div class="map-tile-picker">
                 <button class="layer-btn active" data-style="streets" id="btn-layer-streets">Street Map</button>
-                <button class="layer-btn" data-style="satellite" id="btn-layer-satellite">Satellite Aerial</button>
-                <button class="layer-btn" data-style="dark" id="btn-layer-dark">OpenStreetMap</button>
+                <button class="layer-btn" data-style="satellite" id="btn-layer-satellite">Satellite</button>
+                <button class="layer-btn" data-style="dark" id="btn-layer-dark">OSM</button>
             </div>
-            <button class="btn-trigger-sos" id="header-sos-btn">🚨 EMERGENCY SOS</button>
+            <button class="btn-trigger-sos" id="header-sos-btn">🚨 SOS DISTRESS</button>
         </div>
     </header>
 
@@ -217,7 +217,7 @@
                         <h4>🚨 Evacuation Team Priority Queue</h4>
                         <span class="queue-badge" id="queue-badge">4 High-Priority Users</span>
                     </div>
-                    <p class="queue-desc">Evacuees who rated danger &le; 4 are automatically prioritized for emergency vehicle extraction.</p>
+                    <p class="queue-desc">Evacuees who rated safety &le; 4 are automatically prioritized for emergency vehicle extraction.</p>
                     <div class="queue-list" id="priority-queue-list">
                         <!-- Populated dynamically by script.js -->
                     </div>
@@ -265,7 +265,7 @@
             <!-- Map Floating Action Overlay (Top Right) -->
             <div class="map-actions-toolbar">
                 <div class="toolbar-pill">
-                    <button class="tool-action-btn" id="tool-center-user" title="Center on your location">🎯 My Location</button>
+                    <button class="tool-action-btn" id="tool-center-user" title="Center on your location">📍 My Location</button>
                     <button class="tool-action-btn" id="tool-fit-city" title="Fit full city view">⛶ Fit Lahaina</button>
                     <button class="tool-action-btn active" id="tool-toggle-streets" title="Toggle street safety colors">🛣️ Street Safety</button>
                 </div>
@@ -337,8 +337,8 @@
                         <strong class="sos-val" id="sos-coords">20.8752° N, -156.6788° W</strong>
                     </div>
                     <div class="sos-info-box">
-                        <span class="sos-lbl">Reported Danger Rating:</span>
-                        <strong class="sos-val text-red" id="sos-rating-val">3 / 10 (CRITICAL RESCUE PRIORITY)</strong>
+                        <span class="sos-lbl">Reported Safety Level:</span>
+                        <strong class="sos-val text-red" id="sos-rating-val">Safety: 3 / 10 (Low Safety · High Rescue Priority)</strong>
                     </div>
                     <div class="sos-info-box">
                         <span class="sos-lbl">Emergency Radio Channels:</span>
