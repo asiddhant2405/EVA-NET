@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════
    EVA-NET — Disaster Evacuation Navigation Engine (Lahaina, Maui)
    Real-World Geography · Zero API Key Requirement · Google Maps Routing
-   HTML5 GPS Location Detection · Non-Glitching Danger Priority Hub
+   HTML5 GPS Location Detection · Highlighted Shelter Route Engine
    ═══════════════════════════════════════════════════════════════════ */
 
 // ─── Real-World Geographic & Shelter Database (Lahaina, Maui) ─────
@@ -280,7 +280,7 @@ const REAL_DISASTER_HAZARDS = [
 ];
 
 let activeHazards = [...REAL_DISASTER_HAZARDS];
-let userDangerRating = 3; // Default 3 (Priority 1 Rescue)
+let userDangerRating = 3;
 
 // Priority Queue for First Responders
 let priorityQueue = [
@@ -293,7 +293,7 @@ let priorityQueue = [
 // User Location & Destination State
 let userLocation = {
     lat: 20.8752,
-    lon: -156.6788, // Front St & Prison St
+    lon: -156.6788,
     nearestNode: "N_FRONT_PRISON"
 };
 
@@ -320,6 +320,7 @@ let hazardLayerGroup = null;
 let routeSafestPolyline = null;
 let routeShortestPolyline = null;
 let userMarker = null;
+let shelterMarkersMap = {};
 let gpsAccuracyCircle = null;
 let simAgentsLayerGroup = null;
 let peerLinksLayerGroup = null;
@@ -355,29 +356,23 @@ function initDisasterMap() {
         attributionControl: false
     });
 
-    // Clean top-right zoom control
     L.control.zoom({ position: 'topright' }).addTo(map);
 
-    // Free, high-resolution tile layer with zero API key
     setMapTileStyle('streets');
 
-    // Layer Groups
     streetNetworkLayerGroup = L.layerGroup().addTo(map);
     shelterLayerGroup = L.layerGroup().addTo(map);
     hazardLayerGroup = L.layerGroup().addTo(map);
     simAgentsLayerGroup = L.layerGroup().addTo(map);
     peerLinksLayerGroup = L.layerGroup().addTo(map);
 
-    // Render Real-World Elements
     renderStreetSafetyNetwork();
     renderShelterMarkers();
     renderHazardMarkers();
     initUserLocationMarker();
 
-    // Calculate initial routes
     recalculateAndDrawRoutes();
 
-    // Map Click Listener (Google Maps-style origin placement / hazard drop)
     map.on('click', (e) => {
         if (activeAddHazardType) {
             handleMapClickAddHazard(e.latlng);
@@ -386,29 +381,24 @@ function initDisasterMap() {
         }
     });
 
-    // Inspect default primary shelter
     inspectShelter(currentTargetShelter);
 }
 
-/* ─── 100% Free Public Map Tile Providers (No API Keys Required) ─── */
 function setMapTileStyle(style) {
     currentMapStyle = style;
     if (tileLayer) map.removeLayer(tileLayer);
 
     if (style === 'streets') {
-        // High-resolution Esri World Street Map (Crisp street names & topography)
         tileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
             maxZoom: 19,
             attribution: 'Esri World Street Map'
         });
     } else if (style === 'satellite') {
-        // High-resolution Esri World Imagery (Satellite)
         tileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
             maxZoom: 19,
             attribution: 'Esri World Imagery'
         });
     } else {
-        // OpenStreetMap Standard
         tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: 'OpenStreetMap'
@@ -417,7 +407,6 @@ function setMapTileStyle(style) {
     tileLayer.addTo(map);
 }
 
-/* ─── Render All Lahaina Streets (Safe vs Blocked) ─────────────────── */
 function renderStreetSafetyNetwork() {
     streetNetworkLayerGroup.clearLayers();
     if (!showStreetNetwork) return;
@@ -427,20 +416,20 @@ function renderStreetSafetyNetwork() {
         const vNode = ROAD_NODES[edge.v];
         if (!uNode || !vNode) return;
 
-        let strokeColor = '#22c55e'; // Safe (Green)
+        let strokeColor = '#22c55e';
         let strokeDash = null;
         let strokeOpacity = 0.65;
         let weight = 4;
         let statusBadge = "🟢 CLEAR & SAFE";
 
         if (edge.safety === "blocked") {
-            strokeColor = '#ef4444'; // Blocked (Red)
+            strokeColor = '#ef4444';
             strokeDash = '8, 6';
             strokeOpacity = 0.9;
             weight = 4.5;
             statusBadge = "🔴 100% BLOCKED (ACTIVE WILDFIRE)";
         } else if (edge.safety === "caution") {
-            strokeColor = '#f59e0b'; // Caution (Amber)
+            strokeColor = '#f59e0b';
             strokeDash = '4, 4';
             strokeOpacity = 0.8;
             weight = 4;
@@ -465,14 +454,15 @@ function renderStreetSafetyNetwork() {
     });
 }
 
-/* ─── Render Shelter Markers ──────────────────────────────────────── */
 function renderShelterMarkers() {
     shelterLayerGroup.clearLayers();
+    shelterMarkersMap = {};
 
     LAHAINA_SHELTERS.forEach(shelter => {
+        const isActive = currentTargetShelter && currentTargetShelter.id === shelter.id;
         const customIcon = L.divIcon({
             className: 'custom-leaflet-icon',
-            html: `<div class="shelter-map-marker" data-id="${shelter.id}" title="${shelter.name}">🏥</div>`,
+            html: `<div class="shelter-map-marker ${isActive ? 'active-shelter-marker' : ''}" data-id="${shelter.id}" title="${shelter.name}">🏥</div>`,
             iconSize: [36, 36],
             iconAnchor: [18, 18],
             popupAnchor: [0, -18]
@@ -492,35 +482,60 @@ function renderShelterMarkers() {
                     <b>Capacity:</b> <span style="color: #16a34a; font-weight: 700;">${shelter.capacityTotal - shelter.capacityOccupied} Beds Available</span> (${shelter.capacityOccupied}/${shelter.capacityTotal})
                 </div>
                 <button onclick="window.selectShelterFromMap('${shelter.id}')" style="width: 100%; background: #1565c0; color: #fff; border: none; padding: 7px; border-radius: 4px; font-size: 11px; font-weight: 700; cursor: pointer;">
-                    🚀 Set Destination & Navigate
+                    🚀 Set Destination & Highlight Route
                 </button>
             </div>
         `;
 
         marker.bindPopup(popupContent);
         marker.on('click', () => {
-            inspectShelter(shelter);
-            const sel = document.getElementById('gmaps-dest-select');
-            if (sel) sel.value = shelter.id;
+            selectAndHighlightShelter(shelter);
         });
 
+        shelterMarkersMap[shelter.id] = marker;
         shelterLayerGroup.addLayer(marker);
     });
+}
+
+// ─── Highlight Shelter & Animate Route on Safe Centre Click ───────
+function selectAndHighlightShelter(shelter) {
+    currentTargetShelter = shelter;
+
+    // Update Dropdown
+    const sel = document.getElementById('gmaps-dest-select');
+    if (sel) sel.value = shelter.id;
+
+    // Update Inspector & Directory
+    inspectShelter(shelter);
+
+    // Update visual active classes on all shelter markers
+    document.querySelectorAll('.shelter-map-marker').forEach(el => {
+        const id = el.getAttribute('data-id');
+        el.classList.toggle('active-shelter-marker', id === shelter.id);
+    });
+
+    // Recalculate & highlight the route
+    recalculateAndDrawRoutes();
+
+    // Smoothly pan & fit bounds to show both user and target shelter
+    if (map) {
+        const bounds = L.latLngBounds([
+            [userLocation.lat, userLocation.lon],
+            [shelter.lat, shelter.lon]
+        ]);
+        map.fitBounds(bounds, { padding: [70, 70], maxZoom: 16 });
+    }
+
+    showToast("Route Highlighted 🟢", `Navigating to ${shelter.name}. Safest route active.`);
 }
 
 window.selectShelterFromMap = function(shelterId) {
     const shelter = LAHAINA_SHELTERS.find(s => s.id === shelterId);
     if (shelter) {
-        currentTargetShelter = shelter;
-        const sel = document.getElementById('gmaps-dest-select');
-        if (sel) sel.value = shelter.id;
-        inspectShelter(shelter);
-        recalculateAndDrawRoutes();
-        showToast("Destination Set", `Targeting ${shelter.name}. Safest route updated.`);
+        selectAndHighlightShelter(shelter);
     }
 };
 
-/* ─── Render Actual Maui Wildfire Disaster Hazards ────────────────── */
 function renderHazardMarkers() {
     hazardLayerGroup.clearLayers();
 
@@ -554,7 +569,6 @@ function renderHazardMarkers() {
     });
 }
 
-/* ─── Smooth In-Place User Location Marker Update (No Glitching) ──── */
 function initUserLocationMarker() {
     updateUserMarkerVisual();
 }
@@ -564,7 +578,6 @@ function updateUserMarkerVisual() {
     const markerColor = isHighDanger ? '#dc2626' : '#0284c7';
 
     if (userMarker) {
-        // Smoothly update existing marker position and styling without destroying layer
         userMarker.setLatLng([userLocation.lat, userLocation.lon]);
         const el = userMarker.getElement();
         if (el) {
@@ -576,7 +589,6 @@ function updateUserMarkerVisual() {
         }
         userMarker.setTooltipContent(`<b>Your Location</b><br>Danger: ${userDangerRating}/10 (${isHighDanger ? '🚨 PRIORITY 1 RESCUE' : 'Moderate Risk'})`);
     } else {
-        // First creation
         const markerIconHtml = `<div class="user-map-marker" style="background: ${markerColor}; ${isHighDanger ? 'box-shadow: 0 0 20px rgba(220,38,38,0.95);' : ''}" title="Drag or click map to change your location">📍</div>`;
         const userIcon = L.divIcon({
             className: 'custom-leaflet-icon',
@@ -668,14 +680,11 @@ function detectUserLocation() {
                 setTimeout(() => { btn.textContent = "🎯 Detect GPS"; }, 3000);
             }
 
-            // Draw or update GPS Accuracy Circle on Map
             if (gpsAccuracyCircle) map.removeLayer(gpsAccuracyCircle);
 
-            // Check if user is in/near Maui region (Latitude: 20.6 to 21.2, Longitude: -157.0 to -156.0)
             const isNearMaui = (lat >= 20.6 && lat <= 21.2 && lon >= -157.0 && lon <= -156.0);
 
             if (isNearMaui) {
-                // User is physically near Maui! Place them at exact real coords
                 updateUserLocation(lat, lon);
                 gpsAccuracyCircle = L.circle([lat, lon], {
                     radius: Math.min(accuracy, 200),
@@ -685,15 +694,13 @@ function detectUserLocation() {
                 }).addTo(map);
 
                 map.flyTo([lat, lon], 15, { duration: 1.0 });
-                showToast("🎯 Real GPS Location Locked", `Coordinates: ${lat.toFixed(4)}°, ${lon.toFixed(4)}° (±${accuracy}m accuracy).`);
+                showToast("🎯 Real GPS Location Locked", `Coordinates: ${lat.toFixed(4)}°, ${lon.toFixed(4)}° (±${accuracy}m).`);
             } else {
-                // User is testing from another part of the world
-                // Keep the simulation anchored to Lahaina front lines, but provide feedback and update coordinates
                 updateUserLocation(20.8752, -156.6788);
                 map.flyTo([20.8752, -156.6788], 15, { duration: 1.0 });
 
                 showToast(
-                    "📍 Real GPS Found (" + lat.toFixed(2) + "°, " + lon.toFixed(2) + "°)",
+                    "📍 Real GPS (" + lat.toFixed(2) + "°, " + lon.toFixed(2) + "°)",
                     "Mapped to Lahaina Front St origin for Maui disaster simulation!"
                 );
             }
@@ -704,15 +711,11 @@ function detectUserLocation() {
                 btn.textContent = "🎯 Detect GPS";
             }
             console.warn("Geolocation error:", err);
-            showToast("GPS Permission Notice", "Defaulting to Lahaina Ground Zero (Front St & Prison St).");
+            showToast("GPS Notice", "Defaulting to Lahaina Ground Zero (Front St & Prison St).");
             updateUserLocation(20.8752, -156.6788);
             map.flyTo([20.8752, -156.6788], 15, { duration: 0.8 });
         },
-        {
-            enableHighAccuracy: true,
-            timeout: 8000,
-            maximumAge: 0
-        }
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
     );
 }
 
@@ -755,7 +758,6 @@ function findPath(startNodeId, endNodeId, options = { avoidHazards: true }) {
     ROAD_EDGES.forEach(edge => {
         let weight = edge.distance;
 
-        // Check if edge intersects active hazard
         const hazardOnEdge = activeHazards.find(h => {
             const uNode = ROAD_NODES[edge.u];
             const vNode = ROAD_NODES[edge.v];
@@ -843,18 +845,20 @@ function drawRoutesOnMap(safest, shortest) {
     if (routeSafestPolyline) map.removeLayer(routeSafestPolyline);
     if (routeShortestPolyline) map.removeLayer(routeShortestPolyline);
 
-    // Safest Route (Glowing Green)
+    // 1. Draw Safest Route (Prominently Highlighted with Glow Effect)
     if (showSafestRoute && safest.coordinates.length > 1) {
         routeSafestPolyline = L.polyline(safest.coordinates, {
-            color: '#22c55e',
-            weight: 6,
-            opacity: 0.95,
-            lineJoin: 'round'
+            color: '#10b981',
+            weight: 7,
+            opacity: 0.98,
+            lineJoin: 'round',
+            className: 'route-highlight-active'
         }).addTo(map);
-        routeSafestPolyline.bindTooltip("🟢 <b>EVA-NET Safest Route</b> (100% Clear of Fire)", { sticky: true });
+        routeSafestPolyline.bringToFront();
+        routeSafestPolyline.bindTooltip(`🟢 <b>EVA-NET Safest Route to ${currentTargetShelter.name}</b> (100% Clear)`, { sticky: true });
     }
 
-    // Shortest Route (Red Warning)
+    // 2. Draw Shortest Route (Red Warning)
     if (showShortestRoute && shortest.coordinates.length > 1) {
         routeShortestPolyline = L.polyline(shortest.coordinates, {
             color: '#ef4444',
@@ -893,7 +897,7 @@ function generateTurnByTurnSteps(routeResult) {
         listEl.innerHTML = `
             <div class="turn-step">
                 <span class="turn-step-icon">📍</span>
-                <div>Depart location and follow green route to <b>${currentTargetShelter.name}</b>.</div>
+                <div>Depart location and follow highlighted green route to <b>${currentTargetShelter.name}</b>.</div>
             </div>
         `;
         return;
@@ -920,7 +924,7 @@ function generateTurnByTurnSteps(routeResult) {
     stepsHtml += `
         <div class="turn-step">
             <span class="turn-step-icon">🏁</span>
-            <div><b>Arrive safely at ${currentTargetShelter.name}</b> (Shelter Operational)</div>
+            <div><b>Arrive safely at ${currentTargetShelter.name}</b> (Shelter Operational · Route Active)</div>
         </div>
     `;
 
@@ -932,9 +936,21 @@ function generateTurnByTurnSteps(routeResult) {
 // ═══════════════════════════════════════════════════════════════════
 function initDangerRatingSystem() {
     const headerSlider = document.getElementById('header-danger-slider');
+    const headerWidget = document.querySelector('.header-danger-widget');
+
     if (!headerSlider) return;
 
-    headerSlider.addEventListener('input', function() {
+    // Prevent any mouse/pointer event propagation to Leaflet map
+    if (typeof L !== 'undefined') {
+        L.DomEvent.disableClickPropagation(headerSlider);
+        L.DomEvent.disableScrollPropagation(headerSlider);
+        if (headerWidget) {
+            L.DomEvent.disableClickPropagation(headerWidget);
+        }
+    }
+
+    headerSlider.addEventListener('input', function(e) {
+        e.stopPropagation();
         userDangerRating = parseInt(this.value, 10);
         updateDangerRatingState(userDangerRating);
     });
@@ -948,7 +964,7 @@ function updateDangerRatingState(score) {
 
     if (score <= 4) {
         if (pill) {
-            pill.textContent = `${score} / 10 (PRIORITY 1 RESCUE)`;
+            pill.textContent = `${score} / 10 (PRIORITY 1)`;
             pill.className = 'danger-pill priority-high';
         }
         if (sosRatingVal) sosRatingVal.textContent = `${score} / 10 (CRITICAL RESCUE PRIORITY)`;
@@ -1012,10 +1028,7 @@ function initGoogleMapsRoutingUI() {
             const sid = this.value;
             const shelter = LAHAINA_SHELTERS.find(s => s.id === sid);
             if (shelter) {
-                inspectShelter(shelter);
-                recalculateAndDrawRoutes();
-                map.flyTo([shelter.lat, shelter.lon], 15, { duration: 0.8 });
-                showToast("Route Recalculated", `Navigating to ${shelter.name}`);
+                selectAndHighlightShelter(shelter);
             }
         });
     }
@@ -1024,7 +1037,6 @@ function initGoogleMapsRoutingUI() {
         btnDetectGPS.addEventListener('click', detectUserLocation);
     }
 
-    // Toggle Safest / Shortest visual cards
     cardSafest?.addEventListener('click', () => {
         showSafestRoute = true;
         showShortestRoute = false;
@@ -1040,7 +1052,6 @@ function initGoogleMapsRoutingUI() {
         recalculateAndDrawRoutes();
     });
 
-    // Toggle Turn Directions
     document.getElementById('toggle-turn-directions')?.addEventListener('click', () => {
         const list = document.getElementById('turn-steps-list');
         const arrow = document.getElementById('turn-arrow');
@@ -1127,6 +1138,7 @@ function stopSiren() {
 function inspectShelter(shelter) {
     currentTargetShelter = shelter;
 
+    const inspCard = document.getElementById('inspector-card');
     const nameEl = document.getElementById('insp-name');
     const typeEl = document.getElementById('insp-type');
     const addrEl = document.getElementById('insp-address');
@@ -1138,6 +1150,12 @@ function inspectShelter(shelter) {
     const capBarEl = document.getElementById('insp-capacity-bar');
     const capDetailEl = document.getElementById('insp-capacity-detail');
     const suppliesEl = document.getElementById('insp-supplies');
+
+    if (inspCard) {
+        inspCard.classList.remove('highlighted');
+        void inspCard.offsetWidth; // trigger reflow for pulse
+        inspCard.classList.add('highlighted');
+    }
 
     if (nameEl) nameEl.textContent = shelter.name;
     if (typeEl) typeEl.textContent = shelter.type.toUpperCase();
@@ -1190,10 +1208,7 @@ function initShelterDirectory() {
             const sid = item.getAttribute('data-id');
             const shelter = LAHAINA_SHELTERS.find(s => s.id === sid);
             if (shelter) {
-                inspectShelter(shelter);
-                document.getElementById('gmaps-dest-select').value = shelter.id;
-                recalculateAndDrawRoutes();
-                map.flyTo([shelter.lat, shelter.lon], 15, { duration: 0.8 });
+                selectAndHighlightShelter(shelter);
             }
         });
     });
@@ -1203,7 +1218,6 @@ function initShelterDirectory() {
 // TOOLBAR & MAP VIEWPORT CONTROLS
 // ═══════════════════════════════════════════════════════════════════
 function initToolbarEvents() {
-    // Map View Switchers
     document.getElementById('btn-layer-streets')?.addEventListener('click', function() {
         setActiveLayerBtn(this);
         setMapTileStyle('streets');
@@ -1222,7 +1236,6 @@ function initToolbarEvents() {
         btn.classList.add('active');
     }
 
-    // Toggle Street Network
     document.getElementById('tool-toggle-streets')?.addEventListener('click', function() {
         showStreetNetwork = !showStreetNetwork;
         this.classList.toggle('active', showStreetNetwork);
@@ -1230,10 +1243,8 @@ function initToolbarEvents() {
         showToast("Street Safety Layer", showStreetNetwork ? "Displaying all Safe, Caution, and Blocked roads." : "Road safety layer hidden.");
     });
 
-    // Center on user location / detect GPS
     document.getElementById('tool-center-user')?.addEventListener('click', detectUserLocation);
 
-    // Fit city view
     document.getElementById('tool-fit-city')?.addEventListener('click', () => {
         const bounds = L.latLngBounds([
             ...LAHAINA_SHELTERS.map(s => [s.lat, s.lon]),
@@ -1243,7 +1254,6 @@ function initToolbarEvents() {
         map.fitBounds(bounds, { padding: [40, 40] });
     });
 
-    // Add Hazard Tools
     document.querySelectorAll('.hazard-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const type = this.getAttribute('data-hazard');
@@ -1259,7 +1269,6 @@ function initToolbarEvents() {
         });
     });
 
-    // Copy Phone Number
     document.getElementById('btn-copy-phone')?.addEventListener('click', () => {
         const phone = currentTargetShelter.phone;
         navigator.clipboard.writeText(phone).then(() => {
@@ -1267,7 +1276,6 @@ function initToolbarEvents() {
         });
     });
 
-    // Sim Controls
     document.getElementById('btn-sim-play')?.addEventListener('click', toggleSimulation);
     document.getElementById('btn-sim-step')?.addEventListener('click', stepSimulation);
     document.getElementById('btn-sim-reset')?.addEventListener('click', resetSimulation);
