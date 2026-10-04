@@ -1,9 +1,22 @@
 {
   "version": 2,
+  "cleanUrls": true,
   "rewrites": [
     {
       "source": "/",
       "destination": "/website/index.html"
+    },
+    {
+      "source": "/styles.css",
+      "destination": "/website/styles.css"
+    },
+    {
+      "source": "/script.js",
+      "destination": "/website/script.js"
+    },
+    {
+      "source": "/website/(.*)",
+      "destination": "/website/$1"
     }
   ]
 }
