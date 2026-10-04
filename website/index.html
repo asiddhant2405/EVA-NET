@@ -3,366 +3,896 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EVA-NET — Disaster Evacuation Navigation (Lahaina, Maui)</title>
-    <meta name="description" content="EVA-NET: Decentralized real-time disaster evacuation navigation on real-world Maui geography with safest vs shortest routes, verified shelter owner contacts, 1-10 safety level prioritization, and emergency SOS broadcast.">
+    <title>EVA-NET 2.0 — Disaster Evacuation Navigation & Emergency Operations</title>
+    <meta name="description" content="EVA-NET 2.0: Decentralized disaster evacuation navigation and emergency response platform based on the August 2023 Lahaina, Maui wildfire case study. Features hazard-aware Dijkstra routing, real-time incident triage, responder coordination, and P2P mesh simulation.">
+    
+    <!-- Google Fonts for Modern Technical Typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Leaflet CSS for Real-World Interactive Mapping -->
+    <!-- Leaflet CSS for Base Geospatial Mapping -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     
+    <!-- Main Application Stylesheet -->
     <link rel="stylesheet" href="styles.css">
 </head>
-<body class="app-fullscreen">
+<body class="app-fullscreen theme-dark">
 
-    <!-- ═══ Top App Navigation & Crisis Command Header ═══ -->
-    <header id="app-header">
-        <div class="header-brand">
-            <div class="logo-wrap">
-                <svg class="logo-svg" width="28" height="28" viewBox="0 0 40 40" fill="none">
-                    <circle cx="20" cy="20" r="18" stroke="#1565C0" stroke-width="2.5"/>
-                    <circle cx="20" cy="12" r="3" fill="#1565C0"/>
-                    <circle cx="12" cy="26" r="3" fill="#1565C0"/>
-                    <circle cx="28" cy="26" r="3" fill="#1565C0"/>
-                    <line x1="20" y1="15" x2="12" y2="23" stroke="#1565C0" stroke-width="1.5"/>
-                    <line x1="20" y1="15" x2="28" y2="23" stroke="#1565C0" stroke-width="1.5"/>
-                    <line x1="15" y1="26" x2="25" y2="26" stroke="#1565C0" stroke-width="1.5"/>
-                </svg>
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- 1. TOP CRISIS OPERATIONS HEADER                                 -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <header id="app-header" role="banner">
+        <div class="header-left">
+            <div class="header-brand">
+                <div class="brand-symbol" aria-hidden="true">
+                    <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
+                        <circle cx="20" cy="20" r="18" stroke="#38bdf8" stroke-width="2.5"/>
+                        <circle cx="20" cy="12" r="3.5" fill="#38bdf8"/>
+                        <circle cx="12" cy="26" r="3.5" fill="#38bdf8"/>
+                        <circle cx="28" cy="26" r="3.5" fill="#38bdf8"/>
+                        <line x1="20" y1="14" x2="12" y2="24" stroke="#38bdf8" stroke-width="1.8"/>
+                        <line x1="20" y1="14" x2="28" y2="24" stroke="#38bdf8" stroke-width="1.8"/>
+                        <line x1="14" y1="26" x2="26" y2="26" stroke="#38bdf8" stroke-width="1.8"/>
+                        <circle cx="20" cy="20" r="2" fill="#ef4444"/>
+                    </svg>
+                </div>
                 <div class="brand-text">
-                    <span class="brand-name">EVA-NET</span>
-                    <span class="brand-tag">DISASTER NAVIGATION</span>
+                    <div class="brand-title">
+                        <span class="brand-main">EVA-NET</span>
+                        <span class="brand-ver">v2.0</span>
+                    </div>
+                    <span class="brand-subtitle">EMERGENCY NAVIGATION ENGINE</span>
                 </div>
             </div>
-            <div class="crisis-tag">
-                <span class="live-blink"></span>
-                <span>LAHAINA, MAUI DISASTER</span>
+
+            <div class="crisis-badge" title="Historical Demonstration Context: August 2023 Wildfire">
+                <span class="pulse-indicator red" aria-hidden="true"></span>
+                <span class="crisis-label">LAHAINA, MAUI</span>
+                <span class="crisis-year">2023 CASE STUDY</span>
             </div>
         </div>
 
-        <!-- Safety Level Slider (1 - 10) in Top Header -->
-        <div class="header-safety-widget">
-            <div class="safety-widget-left">
-                <span class="widget-title">YOUR SAFETY LEVEL</span>
-                <span class="widget-desc">Safety &le; 4 = High Priority Rescue</span>
-            </div>
-            <div class="slider-wrap">
-                <input type="range" min="1" max="10" value="3" class="header-slider" id="header-safety-slider" aria-label="Safety level slider from 1 to 10">
-            </div>
-            <div class="safety-pill priority-high" id="header-safety-pill">
-                Safety: 3 / 10 · LOW (PRIORITY 1)
-            </div>
-        </div>
+        <!-- 3 Workspace Tabs in Header -->
+        <nav class="header-workspaces" aria-label="Application Workspaces">
+            <button class="ws-tab active" data-workspace="evacuation" id="tab-ws-evac">
+                <span class="ws-icon" aria-hidden="true">🧭</span>
+                <span class="ws-name">Evacuation</span>
+            </button>
+            <button class="ws-tab" data-workspace="operations" id="tab-ws-ops">
+                <span class="ws-icon" aria-hidden="true">🚨</span>
+                <span class="ws-name">Operations</span>
+                <span class="ws-pill-badge" id="ops-queue-counter">0</span>
+            </button>
+            <button class="ws-tab" data-workspace="simulation" id="tab-ws-sim">
+                <span class="ws-icon" aria-hidden="true">⚡</span>
+                <span class="ws-name">Simulation &amp; COA</span>
+            </button>
+        </nav>
 
-        <!-- Header Actions: Map Layers & SOS -->
-        <div class="header-actions">
-            <div class="map-tile-picker">
-                <button class="layer-btn active" data-style="streets" id="btn-layer-streets">Street Map</button>
-                <button class="layer-btn" data-style="satellite" id="btn-layer-satellite">Satellite</button>
-                <button class="layer-btn" data-style="dark" id="btn-layer-dark">OSM</button>
+        <!-- Right Header Tools: Safety Slider, Map Provider, Settings & SOS -->
+        <div class="header-right">
+            <!-- Safety Level Slider Widget -->
+            <div class="header-safety-widget" id="header-safety-widget" title="Set reported personal safety rating (1-10). Scores <= 4 trigger High Priority Rescue Triage.">
+                <div class="safety-widget-text">
+                    <span class="safety-title">REPORTED SAFETY</span>
+                    <span class="safety-triage-label" id="header-triage-label">PRIORITY 1 RESCUE</span>
+                </div>
+                <div class="safety-slider-wrap">
+                    <input type="range" min="1" max="10" value="3" id="header-safety-slider" class="safety-range-input" aria-label="Personal safety rating from 1 to 10">
+                </div>
+                <div class="safety-pill priority-crit" id="header-safety-pill">
+                    <span class="pill-dot"></span>
+                    <span id="header-safety-val">3 / 10</span>
+                </div>
             </div>
-            <button class="btn-trigger-sos" id="header-sos-btn">🚨 SOS DISTRESS</button>
+
+            <!-- Map Provider Switcher -->
+            <div class="map-provider-picker" title="Toggle Base Map Engine">
+                <label for="select-map-provider" class="sr-only">Map Provider</label>
+                <select id="select-map-provider" class="provider-dropdown">
+                    <option value="leaflet-streets">Leaflet (Street)</option>
+                    <option value="leaflet-satellite">Leaflet (Satellite)</option>
+                    <option value="leaflet-dark">Leaflet (Dark)</option>
+                    <option value="google-maps">Google Maps (API)</option>
+                </select>
+            </div>
+
+            <!-- Settings / Config Button -->
+            <button class="header-icon-btn" id="btn-open-settings" title="Settings, API Keys &amp; Configuration" aria-label="Open Settings">
+                ⚙️
+            </button>
+
+            <!-- Historical Provenance Disclaimer Button -->
+            <button class="header-icon-btn" id="btn-open-disclaimer" title="Data Provenance &amp; Emergency Disclaimer" aria-label="Open Disclaimer">
+                ℹ️
+            </button>
+
+            <!-- Emergency SOS Button -->
+            <button class="btn-emergency-sos" id="header-sos-btn" aria-label="Broadcast Emergency SOS Distress Beacon">
+                <span class="sos-icon" aria-hidden="true">🚨</span>
+                <span class="sos-text">EMERGENCY SOS</span>
+            </button>
         </div>
     </header>
 
-    <!-- ═══ Fullscreen Map Application Layout ═══ -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- 2. MAIN APPLICATION WORKSPACE AREA                              -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
     <main id="app-layout">
-        
-        <!-- Left Floating Google Maps-Style Navigation Drawer -->
-        <aside id="nav-drawer" class="nav-drawer">
-            <div class="drawer-inner">
-                
-                <!-- Google Maps Search & Route Selector -->
-                <div class="gmaps-routing-card">
-                    <div class="gmaps-inputs">
-                        <div class="gmaps-input-row">
-                            <span class="pin-dot origin-dot"></span>
-                            <div class="input-content">
-                                <label class="input-lbl">STARTING LOCATION</label>
-                                <input type="text" id="gmaps-origin-input" value="📍 Front St & Prison St (Click map to change)" readonly>
+
+        <!-- ── Left Operations / Navigation Drawer ─────────────────── -->
+        <aside id="left-panel" class="app-left-panel" aria-label="Workspace Controls">
+            <div class="panel-scroll-container">
+
+                <!-- ════════ WORKSPACE 1: EVACUATION ════════ -->
+                <div class="workspace-view active" id="view-evacuation">
+                    
+                    <!-- Trip Planner Card -->
+                    <section class="card planner-card" aria-labelledby="heading-planner">
+                        <div class="card-header">
+                            <h2 id="heading-planner" class="card-title">Evacuation Route Planner</h2>
+                            <span class="card-subtitle">Hazard-Aware Dijkstra vs. Shortest Distance</span>
+                        </div>
+
+                        <div class="routing-inputs">
+                            <!-- Origin -->
+                            <div class="input-group">
+                                <label class="input-label" for="input-origin">
+                                    <span class="pin-indicator origin"></span>
+                                    <span>STARTING POINT</span>
+                                </label>
+                                <div class="input-with-actions" style="position: relative;">
+                                    <input type="text" id="input-origin" class="text-input" value="Front St &amp; Prison St" placeholder="Click map or search street / address..." autocomplete="off">
+                                    <button class="input-action-btn" id="btn-detect-gps" title="Acquire GPS coordinates via HTML5 Geolocation">
+                                        🎯 GPS
+                                    </button>
+                                    <!-- Search Suggestions Dropdown (Offline Landmarks + Places) -->
+                                    <div id="origin-suggestions" class="search-suggestions-dropdown" style="display: none;"></div>
+                                </div>
+                                <div class="input-caption" id="origin-coords-label">Lat: 20.8756° N, Lon: -156.6775° W (Nearest: Front St &amp; Prison St)</div>
                             </div>
-                            <button class="btn-detect-gps" id="btn-detect-gps" title="Use HTML5 GPS to detect actual current location">
-                                🎯 Detect GPS
+
+                            <div class="connector-line" aria-hidden="true"></div>
+
+                            <!-- Destination Shelter -->
+                            <div class="input-group">
+                                <label class="input-label" for="select-destination">
+                                    <span class="pin-indicator destination"></span>
+                                    <span>EVACUATION DESTINATION</span>
+                                </label>
+                                <div class="input-with-actions">
+                                    <select id="select-destination" class="select-input">
+                                        <!-- Dynamically populated from LAHAINA_SHELTERS -->
+                                    </select>
+                                    <button class="input-action-btn" id="btn-recommend-shelter" title="Auto-recommend optimal shelter based on safety, reachability, and capacity">
+                                        ⚡ Best
+                                    </button>
+                                </div>
+                                <div class="input-caption" id="dest-recommendation-note">Evaluating current road hazards and available bed capacity...</div>
+                            </div>
+                        </div>
+
+                        <!-- Routing Engine Provider Selector -->
+                        <div class="routing-provider-row" aria-label="Routing Engine Provider">
+                            <span class="provider-row-lbl">ROUTING ENGINE:</span>
+                            <div class="provider-radio-group" role="radiogroup" aria-label="Select Routing Provider">
+                                <label class="provider-radio-pill active" id="pill-engine-dijkstra" title="Autonomous on-device graph routing with wildfire perimeters and hard blockages">
+                                    <input type="radio" name="routing-engine-choice" value="dijkstra" checked>
+                                    <span>⚡ EVA-NET Dijkstra</span>
+                                </label>
+                                <label class="provider-radio-pill" id="pill-engine-osrm" title="Open Source Routing Machine external vector geometry">
+                                    <input type="radio" name="routing-engine-choice" value="osrm">
+                                    <span>🌐 OSRM Geometry</span>
+                                </label>
+                                <label class="provider-radio-pill" id="pill-engine-google" title="Google Maps Routes &amp; Directions API (evaluated against disaster perimeters)">
+                                    <input type="radio" name="routing-engine-choice" value="google">
+                                    <span>🗺️ Google Routes</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Objective Selector Tabs -->
+                        <div class="route-objective-tabs" role="tablist" aria-label="Route Objective">
+                            <button class="objective-tab active" data-objective="safest" id="tab-obj-safest" role="tab" aria-selected="true">
+                                <span class="tab-badge safe">🟢 RECOMMENDED</span>
+                                <span class="tab-title">Hazard-Aware Path</span>
+                                <span class="tab-meta" id="tab-meta-safest">Avoiding Active Fires</span>
+                            </button>
+                            <button class="objective-tab" data-objective="shortest" id="tab-obj-shortest" role="tab" aria-selected="false">
+                                <span class="tab-badge warning">🔵 SHORTEST DISTANCE</span>
+                                <span class="tab-title">Direct Road Distance</span>
+                                <span class="tab-meta" id="tab-meta-shortest">Exposes to Hazards</span>
+                            </button>
+                            <button class="objective-tab" data-objective="alternative" id="tab-obj-alternative" role="tab" aria-selected="false">
+                                <span class="tab-badge neutral">🟠 ALTERNATIVE BYPASS</span>
+                                <span class="tab-title">Mauka Bypass Corridor</span>
+                                <span class="tab-meta" id="tab-meta-alt">Route 3000 Bypass</span>
                             </button>
                         </div>
-                        <div class="input-divider"></div>
-                        <div class="gmaps-input-row">
-                            <span class="pin-dot dest-dot"></span>
-                            <div class="input-content">
-                                <label class="input-lbl">EVACUATION DESTINATION</label>
-                                <select id="gmaps-dest-select" class="gmaps-select">
-                                    <option value="SHELTER_CIVIC_CENTER">🏥 Lahaina Civic Center & Gymnasium</option>
-                                    <option value="SHELTER_HIGH_GROUND">🏥 Princess Nāhiʻenaʻena High-Ground Shelter</option>
-                                    <option value="SHELTER_REC_CENTER">🏥 Lahaina Recreation Center & Park</option>
-                                    <option value="SHELTER_SENIOR_CENTER">🏥 West Maui Senior Center & Refuge</option>
-                                    <option value="SHELTER_WAHIKULI">🏥 Wahikuli Wayside Extraction Point</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
 
-                    <!-- Route Mode Comparison Selector -->
-                    <div class="route-options-grid">
-                        <div class="route-option-card safest-card active" id="card-route-safest">
-                            <div class="card-top">
-                                <span class="tag safe">🟢 EVA-NET SAFEST</span>
-                                <span class="score high">98% Safety</span>
-                            </div>
-                            <div class="card-metrics">
-                                <div><strong id="safe-dist">2.8 km</strong> · <span id="safe-time">7 mins</span></div>
-                            </div>
-                            <div class="card-note">✓ 100% Clear of Fire (Uses Bypass)</div>
-                        </div>
-
-                        <div class="route-option-card shortest-card" id="card-route-shortest">
-                            <div class="card-top">
-                                <span class="tag danger">🔴 SHORTEST (LEGACY)</span>
-                                <span class="score low">14% Safety</span>
-                            </div>
-                            <div class="card-metrics">
-                                <div><strong id="short-dist">1.9 km</strong> · <span id="short-time">5 mins (BLOCKED)</span></div>
-                            </div>
-                            <div class="card-note danger-text">⚠️ Traps in Front St Wildfire!</div>
-                        </div>
-                    </div>
-
-                    <!-- Turn-by-Turn Guidance Accordion -->
-                    <div class="turn-directions-panel">
-                        <div class="turn-header" id="toggle-turn-directions">
-                            <span class="turn-title">🧭 Step-by-Step Turn Directions</span>
-                            <span class="turn-arrow" id="turn-arrow">▲</span>
-                        </div>
-                        <div class="turn-steps-list" id="turn-steps-list">
-                            <!-- Populated dynamically via script.js -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Active Shelter Owner Contact & Intelligence Card -->
-                <div class="inspector-card" id="inspector-card">
-                    <div class="inspector-header">
-                        <div class="shelter-badge-wrap">
-                            <span class="facility-badge" id="insp-type">PRIMARY COUNTY SHELTER</span>
-                            <span class="status-pill active" id="insp-status">OPERATIONAL</span>
-                        </div>
-                        <h3 id="insp-name">Lahaina Civic Center & Gymnasium</h3>
-                        <p class="insp-address" id="insp-address">📍 1840 Honoapiʻilani Hwy, Lahaina, HI 96761</p>
-                    </div>
-
-                    <div class="inspector-body">
-                        <!-- Contact Information Block -->
-                        <div class="contact-section">
-                            <h4 class="section-title">Emergency Contact Information</h4>
-                            
-                            <div class="contact-row">
-                                <div class="contact-icon">👤</div>
-                                <div class="contact-data">
-                                    <span class="contact-label">Shelter Lead / Director:</span>
-                                    <strong id="insp-owner">Capt. Mark Kealoha (Maui Emergency Management)</strong>
+                        <!-- Active Route Summary Metrics Card -->
+                        <div class="route-metrics-card" id="route-metrics-display">
+                            <div class="metrics-grid">
+                                <div class="metric-box">
+                                    <span class="metric-label">DISTANCE</span>
+                                    <span class="metric-value" id="val-route-dist">-- km</span>
+                                </div>
+                                <div class="metric-box">
+                                    <span class="metric-label">EST. TIME</span>
+                                    <span class="metric-value text-blue" id="val-route-time">-- min</span>
+                                </div>
+                                <div class="metric-box">
+                                    <span class="metric-label">HAZARD SCORE</span>
+                                    <span class="metric-value text-green" id="val-route-hazard">-- / 100</span>
+                                </div>
+                                <div class="metric-box">
+                                    <span class="metric-label">AVOIDED CLOSURES</span>
+                                    <span class="metric-value text-amber" id="val-route-blocked">0 Segments</span>
                                 </div>
                             </div>
-
-                            <div class="contact-row">
-                                <div class="contact-icon">📞</div>
-                                <div class="contact-data">
-                                    <span class="contact-label">Emergency Phone:</span>
-                                    <a href="tel:8086614685" class="phone-link" id="insp-phone">(808) 661-4685</a>
-                                    <span class="phone-alt" id="insp-alt-phone">(Cell: 808-270-7285)</span>
-                                </div>
-                                <button class="btn-copy-contact" id="btn-copy-phone" title="Copy Phone Number">
-                                    📋 Copy
-                                </button>
+                            <!-- Real-time Disaster Hazard Intersection Advisory -->
+                            <div class="route-hazard-advisory" id="route-hazard-advisory" style="display: none;" role="alert"></div>
+                            <div class="route-rationale-note" id="route-rationale-note">
+                                Calculating verified road-network routing...
                             </div>
+                        </div>
 
-                            <div class="contact-row">
-                                <div class="contact-icon">📻</div>
-                                <div class="contact-data">
-                                    <span class="contact-label">Emergency Radio Net:</span>
-                                    <code class="radio-tag" id="insp-radio">VHF 155.055 MHz / HAM 146.520 MHz</code>
+                        <!-- Turn-by-Turn Directions Drawer -->
+                        <div class="turn-guidance-accordion">
+                            <button class="accordion-trigger" id="btn-toggle-turns" aria-expanded="true">
+                                <span class="acc-title">🧭 Step-by-Step Road Guidance</span>
+                                <span class="acc-icon" id="turn-acc-icon">▲</span>
+                            </button>
+                            <div class="accordion-content" id="turn-directions-container">
+                                <div class="turn-steps-list" id="turn-steps-list">
+                                    <!-- Populated dynamically via JS -->
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Live Bed Capacity Bar -->
-                        <div class="capacity-section">
-                            <div class="capacity-header">
-                                <span>Live Bed Capacity</span>
-                                <strong id="insp-capacity-text">305 Beds Available (61% Free)</strong>
+                        <div class="card-footer-actions">
+                            <button class="btn btn-secondary btn-sm" id="btn-recalculate-route">🔄 Recalculate Now</button>
+                            <button class="btn btn-secondary btn-sm" id="btn-fit-route-map">🔍 Focus Full Route</button>
+                        </div>
+                    </section>
+
+                    <!-- Shelters Directory Card -->
+                    <section class="card shelters-card" aria-labelledby="heading-shelters">
+                        <div class="card-header">
+                            <div>
+                                <h2 id="heading-shelters" class="card-title">Lahaina Safe Evacuation Shelters</h2>
+                                <span class="card-subtitle">County Facilities, High Grounds &amp; Emergency Hubs</span>
                             </div>
-                            <div class="progress-bar-bg">
-                                <div class="progress-bar-fill" id="insp-capacity-bar" style="width: 39%;"></div>
-                            </div>
-                            <div class="capacity-sub" id="insp-capacity-detail">195 Occupied / 500 Total Beds</div>
+                            <span class="badge badge-info" id="badge-shelter-count">5 Shelters</span>
                         </div>
 
-                        <!-- Verified Supplies & Facilities Badges -->
-                        <div class="supplies-section">
-                            <h4 class="section-title">Facilities & Verified Supplies</h4>
-                            <div class="supply-tags" id="insp-supplies">
-                                <span class="supply-tag">💧 Potable Water Tanker (3,000 Gal)</span>
-                                <span class="supply-tag">🍲 MRE Food Rations (1,200 Kits)</span>
-                                <span class="supply-tag">🩺 Medical Clinic & Triage</span>
-                                <span class="supply-tag">⚡ 50kW Diesel Backup Generator</span>
-                                <span class="supply-tag">🛰️ Starlink Mesh Satellite Uplink</span>
-                                <span class="supply-tag">🐾 Pet Friendly Enclosure</span>
-                                <span class="supply-tag">♿ ADA Accessible</span>
-                            </div>
+                        <!-- Filter Bar -->
+                        <div class="filter-bar">
+                            <button class="filter-btn active" data-filter="all">All</button>
+                            <button class="filter-btn" data-filter="available">Available</button>
+                            <button class="filter-btn" data-filter="high-ground">High Ground</button>
+                            <button class="filter-btn" data-filter="medical">Medical Priority</button>
                         </div>
-                    </div>
+
+                        <!-- Shelter Cards List -->
+                        <div class="shelters-list" id="shelter-cards-list">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </section>
+
                 </div>
 
-                <!-- Evacuation Team First Responder Priority Queue -->
-                <div class="priority-queue-card">
-                    <div class="queue-header">
-                        <h4>🚨 Evacuation Team Priority Queue</h4>
-                        <span class="queue-badge" id="queue-badge">4 High-Priority Users</span>
-                    </div>
-                    <p class="queue-desc">Evacuees who rated safety &le; 4 are automatically prioritized for emergency vehicle extraction.</p>
-                    <div class="queue-list" id="priority-queue-list">
-                        <!-- Populated dynamically by script.js -->
-                    </div>
-                </div>
-
-                <!-- Emergency Shelters List -->
-                <div class="shelters-directory-card">
-                    <div class="dir-header">
-                        <h4>All Lahaina Emergency Shelters (5)</h4>
-                        <span class="dir-hint">Click to inspect on map</span>
-                    </div>
-                    <div class="shelter-list" id="shelter-quick-list">
-                        <!-- Populated dynamically by script.js -->
-                    </div>
-                </div>
-
-                <!-- Mesh Swarm Simulation Controls -->
-                <div class="sim-controls-card">
-                    <div class="sim-header">
-                        <h4>P2P Mesh Swarm Simulation</h4>
-                        <span class="sim-badge" id="sim-status-badge">Standby</span>
-                    </div>
-                    <p class="sim-desc">Simulate 16 evacuees propagating &lt;5 KB vector diffs to route dynamically around wildfires.</p>
+                <!-- ════════ WORKSPACE 2: OPERATIONS ════════ -->
+                <div class="workspace-view" id="view-operations">
                     
-                    <div class="sim-btn-row">
-                        <button class="sim-btn primary" id="btn-sim-play">▶ Start Simulation</button>
-                        <button class="sim-btn" id="btn-sim-step">⏭ Step</button>
-                        <button class="sim-btn" id="btn-sim-reset">🔄 Reset</button>
-                    </div>
+                    <!-- Incident Priority Queue -->
+                    <section class="card ops-queue-card" aria-labelledby="heading-queue">
+                        <div class="card-header">
+                            <div>
+                                <h2 id="heading-queue" class="card-title">Emergency SOS Incident Queue</h2>
+                                <span class="card-subtitle">Deterministic Triage: Safety &le; 4 Assigned Priority 1</span>
+                            </div>
+                            <button class="btn btn-primary btn-xs" id="btn-ops-create-incident">+ Manual Incident</button>
+                        </div>
+
+                        <!-- Queue Status Filter -->
+                        <div class="queue-status-filters">
+                            <button class="q-filter-btn active" data-qfilter="all">All Incidents (<span id="q-count-all">0</span>)</button>
+                            <button class="q-filter-btn" data-qfilter="crit">Priority 1 (<span id="q-count-crit">0</span>)</button>
+                            <button class="q-filter-btn" data-qfilter="unassigned">Unassigned (<span id="q-count-unassigned">0</span>)</button>
+                        </div>
+
+                        <div class="incidents-list" id="operations-incidents-list">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </section>
+
+                    <!-- First Responder Units Management -->
+                    <section class="card responders-card" aria-labelledby="heading-responders">
+                        <div class="card-header">
+                            <div>
+                                <h2 id="heading-responders" class="card-title">Simulated First Responder Fleet</h2>
+                                <span class="card-subtitle">Maui Police, County EMS, Fire &amp; Rescue Units</span>
+                            </div>
+                            <span class="badge badge-success" id="badge-responder-status">4 Available</span>
+                        </div>
+
+                        <div class="responders-grid" id="responders-list">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </section>
+
+                    <!-- Active Hazards & Road Closures Manager -->
+                    <section class="card hazards-ops-card" aria-labelledby="heading-hazards-ops">
+                        <div class="card-header">
+                            <div>
+                                <h2 id="heading-hazards-ops" class="card-title">Hazards &amp; Roadblock Controller</h2>
+                                <span class="card-subtitle">Toggle Closures to Evaluate Dynamic Graph Reweighting</span>
+                            </div>
+                            <button class="btn btn-secondary btn-xs" id="btn-ops-reset-hazards">Reset Hazards</button>
+                        </div>
+
+                        <div class="hazard-tools-row">
+                            <span class="tools-label">Drop on Map:</span>
+                            <button class="btn-hazard-tool" data-tool="fire">🔥 Wildfire</button>
+                            <button class="btn-hazard-tool" data-tool="roadblock">🚧 Roadblock</button>
+                            <button class="btn-hazard-tool" data-tool="wires">⚡ Downed Lines</button>
+                            <button class="btn-hazard-tool" data-tool="gridlock">🚗 Gridlock</button>
+                        </div>
+
+                        <div class="active-hazards-list" id="operations-hazards-list">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+
+                        <!-- Road Segments Closure Checkbox List -->
+                        <div class="road-closures-list-wrap">
+                            <div class="list-subhead">Critical Road Segments Status:</div>
+                            <div class="road-segments-toggle-list" id="road-segments-list">
+                                <!-- Populated dynamically via JS -->
+                            </div>
+                        </div>
+                    </section>
+
+                </div>
+
+                <!-- ════════ WORKSPACE 3: SIMULATION & COA ════════ -->
+                <div class="workspace-view" id="view-simulation">
                     
-                    <div class="sim-speed-row">
-                        <span>Speed:</span>
-                        <button class="speed-btn active" data-speed="1">1x</button>
-                        <button class="speed-btn" data-speed="2">2x</button>
-                        <button class="speed-btn" data-speed="5">5x</button>
-                    </div>
+                    <!-- Disaster Scenario Controller -->
+                    <section class="card sim-scenario-card" aria-labelledby="heading-scenarios">
+                        <div class="card-header">
+                            <div>
+                                <h2 id="heading-scenarios" class="card-title">Disaster Scenario Controller</h2>
+                                <span class="card-subtitle">Automated Multi-Agent Evacuation &amp; Road Blockage Scenarios</span>
+                            </div>
+                            <span class="badge badge-warning" id="badge-sim-status">Standby</span>
+                        </div>
+
+                        <div class="scenario-selector-wrap">
+                            <label class="input-label" for="select-sim-scenario">SELECT SCENARIO PRESET</label>
+                            <select id="select-sim-scenario" class="select-input">
+                                <option value="scenario_a">Scenario A: Baseline Lahaina Town Evacuation (16 Agents)</option>
+                                <option value="scenario_b">Scenario B: Wildfire Flare-Up at Front St &amp; Dickenson</option>
+                                <option value="scenario_c">Scenario C: Critical Road Closure (Hwy 30 &amp; Shaw St)</option>
+                                <option value="scenario_d">Scenario D: Lahaina Civic Center Reaches 100% Capacity</option>
+                                <option value="scenario_e">Scenario E: Sudden Evacuation Demand Surge (32 Agents)</option>
+                                <option value="scenario_f">Scenario F: High-Priority Emergency SOS Surge (Critical Triage)</option>
+                                <option value="scenario_g">Scenario G: External Routing Failure (Autonomous Graph Fallback)</option>
+                            </select>
+                        </div>
+
+                        <!-- Playback Controls -->
+                        <div class="sim-playback-row">
+                            <button class="btn btn-primary" id="btn-sim-toggle-play">▶ Start Simulation</button>
+                            <button class="btn btn-secondary" id="btn-sim-step-forward">⏭ Single Step</button>
+                            <button class="btn btn-secondary" id="btn-sim-reset-all">🔄 Reset State</button>
+                        </div>
+
+                        <div class="sim-speed-selector">
+                            <span class="speed-label">Playback Speed:</span>
+                            <div class="speed-btns">
+                                <button class="btn-speed" data-speed="0.5">0.5x</button>
+                                <button class="btn-speed active" data-speed="1">1.0x</button>
+                                <button class="btn-speed" data-speed="2">2.0x</button>
+                                <button class="btn-speed" data-speed="5">5.0x</button>
+                            </div>
+                        </div>
+
+                        <!-- Real-Time Agent Telemetry -->
+                        <div class="sim-metrics-summary">
+                            <div class="sim-metric">
+                                <span class="sm-lbl">TOTAL AGENTS</span>
+                                <strong class="sm-val" id="sim-count-total">16</strong>
+                            </div>
+                            <div class="sim-metric">
+                                <span class="sm-lbl">SAFELY ARRIVED</span>
+                                <strong class="sm-val text-green" id="sim-count-safe">0</strong>
+                            </div>
+                            <div class="sim-metric">
+                                <span class="sm-lbl">IN TRANSIT</span>
+                                <strong class="sm-val text-blue" id="sim-count-transit">16</strong>
+                            </div>
+                            <div class="sim-metric">
+                                <span class="sm-lbl">REROUTES</span>
+                                <strong class="sm-val text-amber" id="sim-count-reroutes">0</strong>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Computer Organization & Architecture (COA) Technical Insights Panel -->
+                    <section class="card coa-insights-card" aria-labelledby="heading-coa">
+                        <div class="card-header">
+                            <div>
+                                <h2 id="heading-coa" class="card-title">Computer Organization &amp; Architecture (COA) Insights</h2>
+                                <span class="card-subtitle">Graph Data Structures, Memory Footprint &amp; Algorithmic Complexity</span>
+                            </div>
+                            <span class="badge badge-info">Technical Lab</span>
+                        </div>
+
+                        <!-- Concept A: Graph Memory & Representation -->
+                        <div class="coa-concept-block">
+                            <div class="concept-head">
+                                <span class="concept-tag">CONCEPT A</span>
+                                <h4>Graph Representation &amp; Memory Footprint</h4>
+                            </div>
+                            <p class="concept-desc">
+                                Spatial road network represented as a Directed Graph $G = (V, E)$ using an Adjacency List. Each edge maintains base physical distance, road class, dynamic hazard risk score $R(e) \in [0, 1]$, and coordinates.
+                            </p>
+                            <div class="coa-stats-grid">
+                                <div class="coa-stat-box">
+                                    <span class="cs-label">GRAPH VERTICES |V|</span>
+                                    <strong class="cs-val" id="coa-vertex-count">24 Nodes</strong>
+                                </div>
+                                <div class="coa-stat-box">
+                                    <span class="cs-label">GRAPH EDGES |E|</span>
+                                    <strong class="cs-val" id="coa-edge-count">58 Segments</strong>
+                                </div>
+                                <div class="coa-stat-box">
+                                    <span class="cs-label">BLOCKED EDGES</span>
+                                    <strong class="cs-val text-red" id="coa-blocked-count">6 Blocked</strong>
+                                </div>
+                                <div class="coa-stat-box">
+                                    <span class="cs-label">EST. GRAPH MEMORY</span>
+                                    <strong class="cs-val" id="coa-memory-calc">~14.2 KB</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Concept B: Dijkstra Algorithm Complexity & Live Benchmarking -->
+                        <div class="coa-concept-block">
+                            <div class="concept-head">
+                                <span class="concept-tag">CONCEPT B</span>
+                                <h4>Dijkstra Pathfinding Complexity &amp; Live Micro-Benchmark</h4>
+                            </div>
+                            <p class="concept-desc">
+                                Compare Binary Min-Heap Priority Queue $O((V + E) \log V)$ against Naive Array Search $O(V^2)$ in real-time using <code>performance.now()</code>.
+                            </p>
+
+                            <div class="benchmark-action-row">
+                                <button class="btn btn-secondary btn-sm" id="btn-run-coa-benchmark">⚡ Run Live Pathfinding Benchmark (50 Runs)</button>
+                            </div>
+
+                            <div class="benchmark-results-table-wrap" id="benchmark-results-wrap">
+                                <table class="benchmark-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Algorithm Implementation</th>
+                                            <th>Time Complexity</th>
+                                            <th>Avg Exec Time</th>
+                                            <th>Explored Nodes</th>
+                                            <th>Path Cost</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="benchmark-table-body">
+                                        <tr>
+                                            <td><strong>Binary Min-Heap Dijkstra</strong></td>
+                                            <td><code>O((V+E) log V)</code></td>
+                                            <td id="bench-heap-time">0.12 ms</td>
+                                            <td id="bench-heap-nodes">18 nodes</td>
+                                            <td id="bench-heap-cost">2,850 m</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Naive Linear Array Search</strong></td>
+                                            <td><code>O(V²)</code></td>
+                                            <td id="bench-array-time">0.45 ms</td>
+                                            <td id="bench-array-nodes">24 nodes</td>
+                                            <td id="bench-array-cost">2,850 m</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Concept C: Priority Queue Emergency Triage -->
+                        <div class="coa-concept-block">
+                            <div class="concept-head">
+                                <span class="concept-tag">CONCEPT C</span>
+                                <h4>Priority Queue &amp; Emergency Triage Scheduling</h4>
+                            </div>
+                            <p class="concept-desc">
+                                Incidents are prioritized using a min-heap indexed by composite triage severity score $S = (\text{SafetyRating} \times 10) + \Delta t_{\text{elapsed}}$.
+                                Guarantees $O(1)$ critical incident dispatch extraction.
+                            </p>
+                        </div>
+
+                        <!-- Concept D: Distributed Mesh Network Resilience -->
+                        <div class="coa-concept-block">
+                            <div class="concept-head">
+                                <span class="concept-tag">CONCEPT D</span>
+                                <h4>Network Fault-Tolerance &amp; Vector Diff Sync</h4>
+                            </div>
+                            <p class="concept-desc">
+                                When external routing APIs (OSRM / Google) disconnect, EVA-NET seamlessly degrades to on-device localized Dijkstra with zero runtime interruptions.
+                            </p>
+                        </div>
+
+                    </section>
+
+                    <!-- Real-Time Operational Event Log -->
+                    <section class="card event-log-card" aria-labelledby="heading-log">
+                        <div class="card-header">
+                            <div>
+                                <h2 id="heading-log" class="card-title">System Event Audit Log</h2>
+                                <span class="card-subtitle">Real-Time State Transitions &amp; Dispatcher Telemetry</span>
+                            </div>
+                            <div class="log-actions">
+                                <button class="btn btn-secondary btn-xs" id="btn-export-log">📥 Export JSON</button>
+                                <button class="btn btn-secondary btn-xs" id="btn-clear-log">Clear</button>
+                            </div>
+                        </div>
+
+                        <div class="event-log-container" id="event-log-stream" role="log" aria-live="polite">
+                            <!-- Streamed dynamically via JS -->
+                        </div>
+                    </section>
+
                 </div>
 
             </div>
         </aside>
 
-        <!-- Right / Full Viewport Interactive Map -->
-        <section id="map-container" class="map-container">
+        <!-- ── Central Interactive Map Container ──────────────────── -->
+        <section id="map-container" class="app-map-area" aria-label="Geospatial Map Canvas">
             
-            <!-- Map Floating Action Overlay (Top Right) -->
-            <div class="map-actions-toolbar">
-                <div class="toolbar-pill">
-                    <button class="tool-action-btn" id="tool-center-user" title="Center on your location">📍 My Location</button>
-                    <button class="tool-action-btn" id="tool-fit-city" title="Fit full city view">⛶ Fit Lahaina</button>
-                    <button class="tool-action-btn active" id="tool-toggle-streets" title="Toggle street safety colors">🛣️ Street Safety</button>
+            <!-- Map Actions Toolbar (Top Right) -->
+            <div class="map-floating-toolbar" role="toolbar" aria-label="Map Visual Controls">
+                <div class="toolbar-group">
+                    <button class="tool-btn" id="tool-center-user" title="Center on your current origin position">📍 My Location</button>
+                    <button class="tool-btn" id="tool-fit-lahaina" title="Zoom to fit full Lahaina crisis corridor">⛶ Fit Lahaina</button>
+                    <button class="tool-btn active" id="tool-toggle-network" title="Toggle visibility of street safety network lines">🛣️ Streets</button>
+                    <button class="tool-btn active" id="tool-toggle-hazards" title="Toggle active disaster hazard polygons">🔥 Hazards</button>
+                    <button class="tool-btn active" id="tool-toggle-shelters" title="Toggle emergency safe shelters">🏥 Shelters</button>
                 </div>
 
-                <div class="toolbar-pill hazard-pill">
-                    <span class="pill-label">PLACE HAZARD:</span>
-                    <button class="hazard-btn" data-hazard="fire" id="add-hazard-fire">🔥 Fire</button>
-                    <button class="hazard-btn" data-hazard="flood" id="add-hazard-flood">🌊 Flood</button>
-                    <button class="hazard-btn" data-hazard="debris" id="add-hazard-debris">🚧 Roadblock</button>
+                <div class="toolbar-group hazard-drop-group">
+                    <span class="group-label">ADD HAZARD:</span>
+                    <button class="hazard-drop-btn" data-hazard="WILDFIRE" id="tool-add-fire" title="Click map to drop active wildfire roadblock">🔥 Wildfire</button>
+                    <button class="hazard-drop-btn" data-hazard="ROAD_COLLAPSE" id="tool-add-debris" title="Click map to drop debris roadblock">🚧 Roadblock</button>
+                    <button class="hazard-drop-btn" data-hazard="DEBRIS" id="tool-add-wires" title="Click map to drop downed utility powerlines">⚡ Downed Lines</button>
                 </div>
             </div>
 
-            <!-- The Real Leaflet Map -->
-            <div id="disaster-map"></div>
+            <!-- The Real Leaflet Map Container -->
+            <div id="disaster-map" class="map-canvas"></div>
+
+            <!-- Container for Google Maps when selected -->
+            <div id="google-map" class="map-canvas" style="display: none;"></div>
 
             <!-- In-Map Dynamic Toast Notification -->
-            <div class="map-toast" id="map-toast">
-                <div class="toast-icon">⚡</div>
-                <div class="toast-text">
-                    <strong id="toast-title">Route Recalculated in 0.18ms</strong>
-                    <p id="toast-body">Avoiding Front St Wildfire. Mesh diff synced with 4 nearby peers.</p>
+            <div class="map-toast" id="map-toast" role="status" aria-live="polite" style="display: none;">
+                <div class="toast-icon" id="toast-icon">⚡</div>
+                <div class="toast-body">
+                    <strong class="toast-title" id="toast-title">Route Recalculated</strong>
+                    <p class="toast-desc" id="toast-body">Avoiding Front St Wildfire zone.</p>
                 </div>
+                <button class="toast-close" id="toast-close" aria-label="Close notification">&times;</button>
             </div>
 
-            <!-- Floating Emergency SOS Button on Map -->
-            <button class="floating-sos-btn" id="map-sos-btn" title="Send Emergency SOS">
-                <span class="sos-glow"></span>
-                <span class="sos-text">🚨 SOS</span>
+            <!-- Floating Quick SOS Button on Map -->
+            <button class="floating-quick-sos-btn" id="map-quick-sos-btn" title="Instant Emergency Distress Beacon" aria-label="Instant SOS">
+                <span class="pulse-ring" aria-hidden="true"></span>
+                <span class="quick-sos-text">🚨 SOS</span>
             </button>
 
             <!-- Map Legend (Bottom Right) -->
-            <div class="map-legend-card">
-                <div class="legend-title">Lahaina Street Safety Status</div>
-                <div class="legend-items">
-                    <div class="legend-item"><span class="legend-line line-safe">━━</span> <b>Safe / Clear Street</b> (Bypass & Mauka)</div>
-                    <div class="legend-item"><span class="legend-line line-caution">━━</span> <b>Caution / Heavy Smoke</b> (Mid Roads)</div>
-                    <div class="legend-item"><span class="legend-line line-blocked">━ ━</span> <b>Blocked / Wildfire</b> (Front St)</div>
-                    <div class="legend-item"><span class="legend-symbol">🏥</span> <b>Safe Shelter</b> (Click for owner & phone)</div>
-                    <div class="legend-item"><span class="legend-symbol">📍</span> <b>Your Location</b> (Click map to move)</div>
+            <div class="map-legend-card" id="map-legend">
+                <div class="legend-header">
+                    <span class="legend-title">Lahaina Road Network Safety</span>
+                    <button class="legend-toggle-btn" id="btn-toggle-legend" aria-label="Toggle legend">▼</button>
+                </div>
+                <div class="legend-items" id="legend-items-list">
+                    <div class="legend-row">
+                        <span class="line-swatch line-safe"></span>
+                        <span><b>Passable / Clear</b> (Bypass Route 3000 &amp; Mauka)</span>
+                    </div>
+                    <div class="legend-row">
+                        <span class="line-swatch line-caution"></span>
+                        <span><b>Caution / Smoke</b> (Reduced Speed / Ember Risk)</span>
+                    </div>
+                    <div class="legend-row">
+                        <span class="line-swatch line-blocked"></span>
+                        <span><b>Impassable / 100% Blocked</b> (Front St Wildfire)</span>
+                    </div>
+                    <div class="legend-row">
+                        <span class="symbol-swatch">🏥</span>
+                        <span><b>Operational Safe Shelter</b> (Click for details)</span>
+                    </div>
+                    <div class="legend-row">
+                        <span class="symbol-swatch">🔥</span>
+                        <span><b>Active Wildfire Hazard Core</b></span>
+                    </div>
+                    <div class="legend-row">
+                        <span class="symbol-swatch">📍</span>
+                        <span><b>Current Origin</b> (Drag or click map to move)</span>
+                    </div>
                 </div>
             </div>
+
         </section>
+
+        <!-- ── Contextual Right Drawer / Inspector Panel ──────────── -->
+        <aside id="right-panel" class="app-right-panel" aria-label="Detailed Inspector Panel">
+            <div class="drawer-header">
+                <div class="drawer-title-wrap">
+                    <span class="drawer-badge" id="insp-badge">SHELTER INSPECTOR</span>
+                    <h3 class="drawer-title" id="insp-title">Lahaina Civic Center &amp; Gymnasium</h3>
+                </div>
+                <button class="drawer-close-btn" id="btn-close-right-panel" aria-label="Close Inspector">&times;</button>
+            </div>
+
+            <div class="drawer-body" id="inspector-content">
+                <!-- Dynamically populated based on selected entity (Shelter, Incident, Responder, Hazard) -->
+            </div>
+        </aside>
 
     </main>
 
-    <!-- ═══ EMERGENCY SOS DISTRESS BROADCAST MODAL ═══ -->
-    <div class="sos-modal-backdrop" id="sos-modal">
-        <div class="sos-modal-card">
-            <div class="sos-modal-header">
-                <div class="sos-title-wrap">
-                    <span class="sos-alert-icon">🚨</span>
-                    <div>
-                        <h3>EMERGENCY SOS DISTRESS BROADCAST</h3>
-                        <p>Offline Mesh Distress Packet Transmitted to First Responders</p>
-                    </div>
-                </div>
-                <button class="btn-close-sos" id="btn-close-sos">&times;</button>
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- 3. BOTTOM APPLICATION STATUS BAR                                -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <footer id="app-status-bar" role="contentinfo">
+        <div class="status-left">
+            <div class="status-pill">
+                <span class="status-dot green" id="net-status-dot"></span>
+                <span class="status-lbl">NETWORK:</span>
+                <strong class="status-val" id="status-net-val">Connected (Autonomous Graph Ready)</strong>
             </div>
-            
-            <div class="sos-modal-body">
-                <div class="sos-status-alert">
-                    <strong>STATUS: DISTRESS BEACON ACTIVE</strong>
-                    <span>Broadcasting via Bluetooth Low Energy, Wi-Fi Direct, and LoRaWAN mesh.</span>
+
+            <div class="status-pill">
+                <span class="status-lbl">LOCATION:</span>
+                <strong class="status-val" id="status-origin-val">20.8756° N, -156.6775° W</strong>
+            </div>
+
+            <div class="status-pill">
+                <span class="status-lbl">ROUTING ENGINE:</span>
+                <strong class="status-val" id="status-engine-val">Local Binary Heap Dijkstra + OSRM Geometry</strong>
+            </div>
+        </div>
+
+        <div class="status-right">
+            <div class="status-pill">
+                <span class="status-lbl">ACTIVE HAZARDS:</span>
+                <strong class="status-val text-red" id="status-hazards-val">4 Active</strong>
+            </div>
+
+            <div class="status-pill">
+                <span class="status-lbl">BLOCKED ROADS:</span>
+                <strong class="status-val text-amber" id="status-blocked-val">6 Segments</strong>
+            </div>
+
+            <div class="status-pill">
+                <span class="status-lbl">SHELTER BEDS:</span>
+                <strong class="status-val text-green" id="status-beds-val">1,188 / 1,680 Available</strong>
+            </div>
+
+            <button class="status-disclaimer-link" id="btn-status-disclaimer">
+                ⚠️ Case Study Prototype Disclaimer
+            </button>
+        </div>
+    </footer>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- 4. MODALS SYSTEM                                                -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+
+    <!-- Modal A: Emergency SOS Distress Broadcast -->
+    <div class="modal-backdrop" id="modal-sos" role="dialog" aria-modal="true" aria-labelledby="modal-sos-title" style="display: none;">
+        <div class="modal-card modal-sos-card">
+            <div class="modal-header modal-header-danger">
+                <div class="header-icon-title">
+                    <span class="modal-icon-danger" aria-hidden="true">🚨</span>
+                    <div>
+                        <h3 id="modal-sos-title">BROADCAST EMERGENCY SOS DISTRESS INCIDENT</h3>
+                        <p>Offline Simulated Peer Mesh &amp; First Responder Dispatch Notification</p>
+                    </div>
+                </div>
+                <button class="modal-close-btn" id="btn-close-sos-modal" aria-label="Close SOS Modal">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="modal-alert-box alert-danger">
+                    <strong>⚠️ SIMULATION PROTOTYPE NOTICE</strong>
+                    <p>This prototype demonstrates automated triage prioritization for the August 2023 Lahaina wildfire. <strong>In a real emergency, immediately dial 911 or contact local Maui Civil Defense at (808) 244-6400.</strong></p>
                 </div>
 
-                <div class="sos-info-grid">
-                    <div class="sos-info-box">
-                        <span class="sos-lbl">Exact GPS Coordinates:</span>
-                        <strong class="sos-val" id="sos-coords">20.8752° N, -156.6788° W</strong>
+                <div class="sos-form-grid">
+                    <div class="form-field">
+                        <label class="field-label" for="sos-coords-display">GPS EXTRACTION COORDINATES</label>
+                        <input type="text" id="sos-coords-display" class="text-input" readonly value="20.8756° N, -156.6775° W (Front St &amp; Prison St)">
                     </div>
-                    <div class="sos-info-box">
-                        <span class="sos-lbl">Reported Safety Level:</span>
-                        <strong class="sos-val text-red" id="sos-rating-val">Safety: 3 / 10 (Low Safety · High Rescue Priority)</strong>
+
+                    <div class="form-field">
+                        <label class="field-label" for="sos-safety-rating-input">PERSONAL SAFETY RATING (1 = IMMEDIATE DANGER, 10 = SAFE)</label>
+                        <div class="slider-with-val">
+                            <input type="range" min="1" max="10" value="3" id="sos-safety-rating-input" class="safety-range-input">
+                            <span class="slider-display-badge crit" id="sos-safety-score-badge">Safety: 3 / 10 (Priority 1)</span>
+                        </div>
                     </div>
-                    <div class="sos-info-box">
-                        <span class="sos-lbl">Emergency Radio Channels:</span>
-                        <strong class="sos-val">VHF 155.055 MHz · HAM 146.520 MHz · GMRS Ch. 7</strong>
+
+                    <div class="form-field full-width">
+                        <label class="field-label">SPECIAL EXTRACTION / MEDICAL REQUIREMENTS</label>
+                        <div class="checkbox-options-grid">
+                            <label class="checkbox-label"><input type="checkbox" id="sos-chk-wheelchair"> ♿ Wheelchair / Mobility Limited</label>
+                            <label class="checkbox-label"><input type="checkbox" id="sos-chk-oxygen"> 💨 Oxygen / Medical Device Needed</label>
+                            <label class="checkbox-label"><input type="checkbox" id="sos-chk-smoke" checked> 🫁 Heavy Smoke Inhalation</label>
+                            <label class="checkbox-label"><input type="checkbox" id="sos-chk-trapped"> 🚪 Trapped by Downed Utility Lines</label>
+                            <label class="checkbox-label"><input type="checkbox" id="sos-chk-infant"> 👶 Infant / Child Present</label>
+                            <label class="checkbox-label"><input type="checkbox" id="sos-chk-pets"> 🐾 Animals / Pets With You</label>
+                        </div>
                     </div>
-                    <div class="sos-info-box">
-                        <span class="sos-lbl">County Dispatch Emergency Hotline:</span>
-                        <strong class="sos-val"><a href="tel:8082446400" style="color: #0284c7; text-decoration: none;">(808) 244-6400</a> (Maui Police & Civil Defense)</strong>
+
+                    <div class="form-field full-width">
+                        <label class="field-label" for="sos-notes-input">OPERATIONAL NOTES FOR RESCUE TEAM</label>
+                        <textarea id="sos-notes-input" class="textarea-input" rows="2" placeholder="Describe landmarks, number of individuals, surrounding fire conditions..."></textarea>
                     </div>
                 </div>
 
-                <div class="sos-actions">
-                    <button class="btn-sos-call" onclick="window.location.href='tel:911'">📞 Call 911 / Maui Dispatch</button>
-                    <button class="btn-sos-strobe" id="btn-sos-sound">🔊 Sound Siren Beacon</button>
-                    <button class="btn-sos-dismiss" id="btn-dismiss-sos">Dismiss Beacon</button>
+                <div class="sos-action-bar">
+                    <button class="btn btn-danger btn-lg" id="btn-submit-sos">📡 Broadcast SOS Beacon into Priority Queue</button>
+                    <button class="btn btn-secondary btn-lg" id="btn-toggle-siren">🔊 Sound Acoustic Siren</button>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Modal B: Settings, Google Maps API & Configuration -->
+    <div class="modal-backdrop" id="modal-settings" role="dialog" aria-modal="true" aria-labelledby="modal-settings-title" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div>
+                    <h3 id="modal-settings-title">Application Settings &amp; Map Providers</h3>
+                    <p>Configure Google Maps JavaScript API, Network Modes, and Display Preferences</p>
+                </div>
+                <button class="modal-close-btn" id="btn-close-settings-modal" aria-label="Close Settings">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="settings-section">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <h4 class="section-heading" style="margin: 0;">Google Maps Platform Integration</h4>
+                        <span id="gmaps-status-badge" class="badge badge-info" style="font-size: 0.68rem;">Leaflet Active</span>
+                    </div>
+                    <p class="section-caption">
+                        Enter a Google Maps API Key to enable the Google Maps JavaScript API, Places Autocomplete location search, and commercial routing geometry. Keys are stored locally in your browser (<code>localStorage</code>) and are never transmitted to any third-party backend.
+                    </p>
+
+                    <div class="form-field">
+                        <label class="field-label" for="input-gmaps-key">GOOGLE MAPS API KEY</label>
+                        <input type="password" id="input-gmaps-key" class="text-input" placeholder="AIzaSy... (leave blank to use zero-cost Leaflet / OSM)">
+                        <div class="field-hint">
+                            • <b>Production Key:</b> Obtain via <a href="https://console.cloud.google.com/google/maps-apis/credentials?utm_campaign=gmp_git_agentskills_v1" target="_blank" rel="noopener">Google Cloud Console</a>.<br>
+                            • <b>Fast Prototyping (No Billing Required):</b> Generate a <a href="https://mapsplatform.google.com/maps-demo-key?utm_campaign=gmp_git_agentskills_v1" target="_blank" rel="noopener">Google Maps Demo Key</a> with any personal Google account.<br>
+                            • <b>API Security:</b> Always restrict your production keys by HTTP referrer and designated APIs via <a href="https://docs.cloud.google.com/api-keys/docs/add-restrictions-api-keys" target="_blank" rel="noopener">Google Cloud API Key Restrictions</a>.
+                        </div>
+                    </div>
+
+                    <div class="btn-row">
+                        <button class="btn btn-primary btn-sm" id="btn-save-gmaps-key">Save Key &amp; Activate Google Maps</button>
+                        <button class="btn btn-secondary btn-sm" id="btn-clear-gmaps-key">Clear Key (Use Leaflet Fallback)</button>
+                    </div>
+
+                    <div class="compliance-notice-box" style="margin-top: 14px; background: rgba(15, 23, 42, 0.7); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; font-size: 0.75rem; color: var(--text-secondary);">
+                        <strong style="color: var(--text-primary); display: block; margin-bottom: 6px;">📋 Google Maps Platform Compliance &amp; Architecture Details</strong>
+                        <ul style="margin-left: 18px; margin-bottom: 8px; line-height: 1.5;">
+                            <li><b>Utilized Products:</b> Maps JavaScript API, Places API (Location Autocomplete), Routes API / DirectionsService, and AdvancedMarkerElement.</li>
+                            <li><b>Cost Notice:</b> Usage of Google Maps Platform products and services may incur costs against your Google Cloud project billing account once in production.</li>
+                            <li><b>License Scope:</b> Google-sourced code snippets are provided 'as-is' under the <a href="https://www.apache.org/licenses/LICENSE-2.0" target="_blank" rel="noopener">Apache 2.0 License</a>. The user is responsible for review and testing to ensure security and compliance with relevant Terms of Service.</li>
+                            <li><b>Terms of Service:</b> Use of this code is subject to the <a href="https://cloud.google.com/maps-platform/terms?utm_campaign=gmp_git_agentskills_v1" target="_blank" rel="noopener">Google Maps Platform Terms of Service</a>.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h4 class="section-heading">Network Simulation Mode</h4>
+                    <p class="section-caption">Simulate field connectivity conditions to test EVA-NET's autonomous resilience.</p>
+                    <div class="radio-options-grid">
+                        <label class="radio-label">
+                            <input type="radio" name="network-mode" value="online" checked>
+                            <span><b>Full Connectivity:</b> External OSRM / Google Routes + Local Graph Dijkstra</span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="network-mode" value="offline">
+                            <span><b>Degraded / Offline:</b> External APIs blocked. 100% On-Device Dijkstra Autonomous Fallback</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h4 class="section-heading">State Reset</h4>
+                    <button class="btn btn-danger btn-sm" id="btn-reset-entire-app">Reset Entire Application State &amp; Hazards</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal C: Data Provenance & Historical Disclaimer -->
+    <div class="modal-backdrop" id="modal-disclaimer" role="dialog" aria-modal="true" aria-labelledby="modal-disc-title" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div>
+                    <h3 id="modal-disc-title">EVA-NET 2.0 — Data Integrity &amp; Provenance</h3>
+                    <p>Lahaina Wildfire Case Study Technical Notice</p>
+                </div>
+                <button class="modal-close-btn" id="btn-close-disclaimer-modal" aria-label="Close Disclaimer">&times;</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="modal-alert-box alert-info">
+                    <strong>CASE STUDY GROUNDING: AUGUST 2023 LAHAINA WILDFIRE</strong>
+                    <p>EVA-NET 2.0 is an academic and engineering prototype designed to study algorithmic pathfinding and decentralized coordination during rapid-onset wildfire disasters. It is grounded in the geography and road network of Lahaina, Maui (August 8, 2023).</p>
+                </div>
+
+                <div class="provenance-categories-list">
+                    <div class="prov-item">
+                        <span class="prov-tag verified">1. Verified Geographic Reference Data</span>
+                        <p>Street alignments, Front Street corridor coordinates, Honoapiʻilani Highway (Route 30), and Lahaina Bypass (Route 3000) geometries are grounded in official county GIS data and OpenStreetMap records.</p>
+                    </div>
+                    <div class="prov-item">
+                        <span class="prov-tag historical">2. Historical Reference Data</span>
+                        <p>Wildfire origins, coastal road blockages at Front St and Banyan Court, and powerline failures represent documented conditions from the August 8, 2023 disaster reports. Historical facilities (such as Lahaina Civic Center and Princess Nāhiʻenaʻena School) were actual designated shelters.</p>
+                    </div>
+                    <div class="prov-item">
+                        <span class="prov-tag simulated">3. Simulated Operational Data</span>
+                        <p>Real-time bed counts, responder units (Medic-4, Engine-6), moving evacuee agents, and SOS distress tickets are generated programmatically for demonstration and architectural evaluation.</p>
+                    </div>
+                    <div class="prov-item">
+                        <span class="prov-tag qualified">4. Qualified Route Assessment</span>
+                        <p>Routes are labeled as <em>"Lower modeled hazard exposure based on loaded scenario data"</em>. No algorithm can guarantee 100% absolute physical safety during active catastrophic wildfire conditions with shifting gale-force winds.</p>
+                    </div>
+                </div>
+
+                <div class="btn-row" style="margin-top: 20px;">
+                    <button class="btn btn-primary" id="btn-acknowledge-disclaimer">I Understand &amp; Acknowledge</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal D: Incident Dispatcher Action Modal -->
+    <div class="modal-backdrop" id="modal-dispatch" role="dialog" aria-modal="true" aria-labelledby="modal-dispatch-title" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div>
+                    <h3 id="modal-dispatch-title">Incident Dispatch &amp; Triage Action</h3>
+                    <p id="modal-dispatch-subtitle">Incident ID: INC-2023-0001</p>
+                </div>
+                <button class="modal-close-btn" id="btn-close-dispatch-modal" aria-label="Close Dispatch">&times;</button>
+            </div>
+
+            <div class="modal-body" id="modal-dispatch-content">
+                <!-- Dynamically populated via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- 5. JAVASCRIPT DEPENDENCIES & APPLICATION LOGIC                  -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
     <!-- Leaflet JS Library -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     
-    <!-- Application Logic -->
+    <!-- EVA-NET 2.0 Core Application Logic -->
     <script src="script.js"></script>
 </body>
 </html>

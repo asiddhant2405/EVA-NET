@@ -22,5 +22,5 @@ from .spatial_graph import create_city_grid, graph_to_geodataframes, get_shelter
 from .hazard_delta import HazardType, VectorDiff, spawn_random_hazards
 from .p2p_fusion import EvacueeAgent, create_agents, run_p2p_tick
 from .graph_reweight import compute_edge_weight, apply_diffs_indexed
-from .pathfinder import find_shortest_path, render_map
+from .pathfinder import find_shortest_path, find_safest_shortest_path, render_map
 from .simulation import EVANetSimulation
