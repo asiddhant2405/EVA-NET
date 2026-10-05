@@ -15,6 +15,10 @@
       "destination": "/website/script.js"
     },
     {
+      "source": "/assets/(.*)",
+      "destination": "/website/assets/$1"
+    },
+    {
       "source": "/website/(.*)",
       "destination": "/website/$1"
     }

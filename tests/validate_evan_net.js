@@ -84,13 +84,19 @@ assert(
     `Status: ${routeSafest.status}, Distance: ${routeSafest.distanceMeters}m`
 );
 
-// TEST 3 — ROUTE OBJECTIVES (Safest vs Shortest)
+// TEST 3 — ROUTE OBJECTIVES (Safest vs Shortest vs Safety-Prioritized vs A*)
 const routeShortest = graph.findRoute("N_FRONT_PRISON", "N_HWY_CIVIC", HISTORICAL_HAZARDS, "shortest");
+const routeSafetyCrit = graph.findRoute("N_FRONT_PRISON", "N_HWY_CIVIC", HISTORICAL_HAZARDS, "safety-prioritized");
+const routeSafetySafeOrigin = graph.findRoute("N_BYPASS_KEAWE", "N_HWY_CIVIC", HISTORICAL_HAZARDS, "safety-prioritized");
+const routeAstar = graph.findRoute("N_FRONT_PRISON", "N_HWY_CIVIC", HISTORICAL_HAZARDS, "shortest", new Set(), "astar");
 assert(
     routeSafest.status === "SUCCESS" && routeShortest.status === "SUCCESS" &&
-    routeShortest.distanceMeters <= routeSafest.distanceMeters,
-    "TEST 3 — ROUTE OBJECTIVES: Shortest-distance minimizes distance while Safest avoids hazard exposure.",
-    `Shortest: ${routeShortest.distanceMeters}m, Safest: ${routeSafest.distanceMeters}m`
+    routeShortest.distanceMeters <= routeSafest.distanceMeters &&
+    Math.abs(routeShortest.distanceMeters - routeAstar.distanceMeters) < 1 &&
+    routeSafetySafeOrigin.status === "SUCCESS" &&
+    routeSafetyCrit.status === "NO_FEASIBLE_ROUTE",
+    "TEST 3 — ROUTE OBJECTIVES: Shortest-distance minimizes distance while Safest and Safety-Prioritized avoid hazard exposure.",
+    `Shortest: ${routeShortest.distanceMeters}m, Safest: ${routeSafest.distanceMeters}m, A*: ${routeAstar.distanceMeters}m, SafetySafe: ${routeSafetySafeOrigin.status}`
 );
 
 // TEST 4 — IMPASSABLE ROAD
@@ -246,12 +252,14 @@ assert(
     `Anchor: ${fallbackLat}, ${fallbackLon}`
 );
 
-// TEST 17 — COA METRICS
+// TEST 17 — COA METRICS & ALGORITHM TRACING
 const bench = graph.runCOABenchmark("N_FRONT_PRISON", "N_HWY_CIVIC", HISTORICAL_HAZARDS, 20);
+const traceFrames = graph.generateExecutionTrace("N_FRONT_PRISON", "N_HWY_CIVIC", HISTORICAL_HAZARDS, "safest");
 assert(
-    bench.heap.avgDurationMs >= 0 && bench.linearArray.avgDurationMs >= 0 && bench.heap.exploredNodes > 0,
-    "TEST 17 — COA METRICS: Micro-benchmarks return authentic performance.now() execution times.",
-    `Heap: ${bench.heap.avgDurationMs.toFixed(3)}ms, Linear: ${bench.linearArray.avgDurationMs.toFixed(3)}ms`
+    bench.heap.avgDurationMs >= 0 && bench.linearArray.avgDurationMs >= 0 && bench.astar.avgDurationMs >= 0 &&
+    bench.heap.exploredNodes > 0 && traceFrames.length > 5,
+    "TEST 17 — COA METRICS: Micro-benchmarks (Dijkstra, A*, Array) and step-by-step trace frames return authentic telemetry.",
+    `Heap: ${bench.heap.avgDurationMs.toFixed(3)}ms, A*: ${bench.astar.avgDurationMs.toFixed(3)}ms, Trace Frames: ${traceFrames.length}`
 );
 
 // TEST 18 — DATA LABELING
