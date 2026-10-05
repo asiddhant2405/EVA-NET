@@ -1,0 +1,1 @@
+EVA-NET is a decentralized, peer-to-peer dynamic evacuation routing system that leverages low-power mesh networking and spatial graph fusion to deliver real-time, hazard-evasive navigation during total infrastructure blackouts.
